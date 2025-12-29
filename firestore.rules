@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isParticipant(chatId) {
+      return isAuthenticated() && 
+        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
+    
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && isOwner(userId);
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        (
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.userName == resource.data.userName &&
+          request.resource.data.userPhotoURL == resource.data.userPhotoURL &&
+          request.resource.data.content == resource.data.content &&
+          request.resource.data.imageURL == resource.data.imageURL &&
+          request.resource.data.createdAt == resource.data.createdAt
+        )
+      );
+      allow delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && 
+        request.auth.uid in resource.data.participants;
+      allow create: if isAuthenticated() && 
+        request.auth.uid in request.resource.data.participants;
+      allow update: if isAuthenticated() && 
+        request.auth.uid in resource.data.participants;
+      
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && isParticipant(chatId);
+        allow create: if isAuthenticated() && 
+          isParticipant(chatId) &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuthenticated() && isParticipant(chatId) && (
+          resource.data.senderId == request.auth.uid ||
+          (
+            request.resource.data.read == true &&
+            resource.data.read == false &&
+            request.resource.data.senderId == resource.data.senderId &&
+            request.resource.data.text == resource.data.text
+          ) ||
+          (
+            request.resource.data.reactions != null &&
+            request.resource.data.senderId == resource.data.senderId &&
+            request.resource.data.text == resource.data.text &&
+            request.resource.data.read == resource.data.read
+          )
+        );
+        allow delete: if isAuthenticated() && 
+          isParticipant(chatId) &&
+          resource.data.senderId == request.auth.uid;
+      }
+    }
+    
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId is string;
+      allow update: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.read == true &&
+        resource.data.read == false;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    match /_test/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
