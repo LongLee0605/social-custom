@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore'
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { createNotification } from '../services/notificationService'
@@ -20,22 +20,33 @@ export const useUserProfile = (userId) => {
       return
     }
 
-    const fetchProfile = async () => {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', userId))
+    // Fetch profile và theo dõi thay đổi real-time
+    const userDocRef = doc(db, 'users', userId)
+    
+    const unsubscribeProfile = onSnapshot(
+      userDocRef,
+      (userDoc) => {
         if (userDoc.exists()) {
-          const profileData = { id: userDoc.id, ...userDoc.data() }
+          const data = userDoc.data()
+          const profileData = { 
+            id: userDoc.id, 
+            ...data,
+            // Đảm bảo followers và following luôn là array
+            followers: Array.isArray(data.followers) ? data.followers : [],
+            following: Array.isArray(data.following) ? data.following : [],
+          }
           setUserProfile(profileData)
-          setIsFollowing(profileData.followers?.includes(currentUser?.uid) || false)
+          setIsFollowing(profileData.followers.includes(currentUser?.uid))
+        } else {
+          setUserProfile(null)
         }
         setLoading(false)
-      } catch (error) {
+      },
+      (error) => {
         console.error('Error fetching profile:', error)
         setLoading(false)
       }
-    }
-
-    fetchProfile()
+    )
 
     let unsubscribe = null
 
@@ -81,7 +92,6 @@ export const useUserProfile = (userId) => {
               console.error('Firestore permission denied. Please configure Security Rules.')
               setPostsLoading(false)
             } else if (error.code === 'failed-precondition' && useOrderBy) {
-              console.warn('Composite index not found. Fetching posts without orderBy and sorting client-side...')
               unsubscribe = setupPostsQuery(false, unsubscribe)
             } else {
               setPostsLoading(false)
@@ -98,6 +108,7 @@ export const useUserProfile = (userId) => {
     unsubscribe = setupPostsQuery(true)
 
     return () => {
+      unsubscribeProfile()
       if (unsubscribe) {
         unsubscribe()
       }
@@ -116,7 +127,8 @@ export const useUserProfile = (userId) => {
         followers: arrayUnion(currentUser.uid),
       })
 
-      setIsFollowing(true)
+      // State sẽ được cập nhật tự động qua onSnapshot
+      // setIsFollowing(true)
 
       // Tạo notification cho người được follow
       if (userId !== currentUser.uid) {
@@ -127,10 +139,13 @@ export const useUserProfile = (userId) => {
           message: 'đã theo dõi bạn',
           link: `/profile/${currentUser.uid}`,
           relatedUserId: currentUser.uid,
-        }).catch(console.error)
+        }).catch((error) => {
+          console.error('Error creating follow notification:', error)
+        })
       }
     } catch (error) {
       console.error('Error following user:', error)
+      throw error
     }
   }
 
@@ -146,9 +161,11 @@ export const useUserProfile = (userId) => {
         followers: arrayRemove(currentUser.uid),
       })
 
-      setIsFollowing(false)
+      // State sẽ được cập nhật tự động qua onSnapshot
+      // setIsFollowing(false)
     } catch (error) {
       console.error('Error unfollowing user:', error)
+      throw error
     }
   }
 

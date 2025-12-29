@@ -247,8 +247,8 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
       )}
 
       {showEmojiPicker && (
-        <div className="p-4 border-b border-gray-200 bg-gray-50 max-h-48 overflow-y-auto">
-          <div className="grid grid-cols-8 gap-2">
+        <div className="p-4 border-b border-gray-200 bg-gray-50 max-h-48 overflow-y-auto overflow-x-hidden">
+          <div className="grid grid-cols-8 gap-2 max-w-full">
             {EMOJI_LIST.map((emoji) => (
               <button
                 key={emoji}
@@ -305,7 +305,7 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
           </div>
 
           <div className="flex-1 relative">
-            <textarea
+            <input
               ref={textareaRef}
               value={messageText}
               onChange={(e) => {
@@ -321,7 +321,7 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
                   handleSend(e)
                 }
               }}
-              placeholder="Nhập tin nhắn... (Enter để gửi, Shift+Enter để xuống dòng)"
+              placeholder="Nhập tin nhắn..."
               rows={1}
               className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none max-h-32 overflow-y-auto"
               disabled={disabled}

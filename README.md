@@ -1,16 +1,18 @@
 # Social Custom - Mạng xã hội
 
-Một ứng dụng mạng xã hội được xây dựng với React, TailwindCSS và Firebase.
+Ứng dụng mạng xã hội được xây dựng với React, TailwindCSS và Firebase.
 
 ## Tính năng
 
 - ✅ Đăng nhập với Google
 - ✅ Tạo và xem bài viết
-- ✅ Upload ảnh
-- ✅ Theo dõi người dùng
-- ✅ Live chat
+- ✅ Upload ảnh và file
+- ✅ Theo dõi/Hủy theo dõi người dùng
+- ✅ Live chat real-time
 - ✅ Trang cá nhân
 - ✅ Cài đặt tài khoản
+- ✅ Thông báo real-time (like, comment, follow, message)
+- ✅ Reactions cho tin nhắn
 
 ## Công nghệ sử dụng
 
@@ -20,48 +22,81 @@ Một ứng dụng mạng xã hội được xây dựng với React, TailwindCS
 - **Firebase** - Backend (Authentication, Firestore, Storage)
 - **React Router** - Routing
 - **Lucide React** - Icons
+- **Cloudinary** - Image upload service
 
 ## Cài đặt
 
-1. Clone repository:
+### 1. Clone repository
+
 ```bash
 git clone <repository-url>
 cd social-custom
 ```
 
-2. Cài đặt dependencies:
+### 2. Cài đặt dependencies
+
 ```bash
 npm install
 ```
 
-3. Tạo file `.env` từ `.env.example` và điền thông tin:
-```bash
-cp .env.example .env
-```
+### 3. Cấu hình môi trường
 
-**Cấu hình Upload Ảnh với Cloudinary:**
-1. Đăng ký tài khoản miễn phí tại: https://cloudinary.com/
-2. Lấy `Cloud Name` và tạo `Upload Preset` (Settings > Upload > Upload presets > Add upload preset)
-3. Thêm vào file `.env`:
-```
+Tạo file `.env` và thêm các biến sau:
+
+```env
+# Firebase Configuration
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+
+# Cloudinary Configuration (cho upload ảnh)
 VITE_UPLOAD_SERVICE=cloudinary
 VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
 VITE_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 ```
 
-Xem hướng dẫn chi tiết: [CLOUDINARY_SETUP.md](./CLOUDINARY_SETUP.md)
+### 4. Cấu hình Firebase
 
-4. Cấu hình Firebase:
-   - Tạo project mới trên [Firebase Console](https://console.firebase.google.com/)
-   - Bật Authentication với Google Provider
-   - Tạo Firestore Database
-   - **QUAN TRỌNG:** Cấu hình Security Rules (xem hướng dẫn bên dưới)
-   - Copy cấu hình vào file `.env`
+1. Tạo project mới trên [Firebase Console](https://console.firebase.google.com/)
+2. Bật **Authentication** với **Google Provider**
+3. Tạo **Firestore Database** (chế độ Production hoặc Test)
+4. Cấu hình **Security Rules**:
+   - Copy nội dung từ file `firestore.rules` trong source code
+   - Paste vào Firebase Console > Firestore Database > Rules
+   - Click **Publish**
+5. (Tùy chọn) Tạo **Storage** cho upload file
+6. Copy cấu hình Firebase vào file `.env`
 
-5. Chạy ứng dụng:
+### 5. Cấu hình Cloudinary (cho upload ảnh)
+
+1. Đăng ký tài khoản miễn phí tại [Cloudinary](https://cloudinary.com/)
+2. Lấy **Cloud Name** từ dashboard
+3. Tạo **Upload Preset**:
+   - Vào Settings > Upload > Upload presets
+   - Click "Add upload preset"
+   - Chọn "Unsigned" nếu muốn upload không cần authentication
+   - Lưu preset name
+4. Thêm thông tin vào file `.env`
+
+### 6. Tạo Firestore Indexes (nếu cần)
+
+Nếu gặp lỗi `failed-precondition`, cần tạo composite indexes:
+
+1. Vào Firebase Console > Firestore Database > Indexes
+2. Tạo các index sau:
+   - Collection: `posts`, Fields: `userId` (Ascending), `createdAt` (Descending)
+   - Collection: `notifications`, Fields: `userId` (Ascending), `createdAt` (Descending)
+
+### 7. Chạy ứng dụng
+
 ```bash
 npm run dev
 ```
+
+Ứng dụng sẽ chạy tại `http://localhost:5173`
 
 ## Cấu trúc dự án
 
@@ -71,43 +106,76 @@ src/
 │   ├── auth/           # Authentication components
 │   ├── chat/           # Chat components
 │   ├── layout/         # Layout components (Header, Sidebar)
+│   ├── notifications/  # Notification components
 │   ├── posts/          # Post components
+│   ├── profile/        # Profile components
 │   └── ui/             # Reusable UI components
-├── contexts/           # React contexts
+├── contexts/           # React contexts (AuthContext)
 ├── hooks/              # Custom hooks
+│   ├── useChats.js
+│   ├── useMessages.js
+│   ├── useNotifications.js
+│   ├── usePosts.js
+│   └── useUserProfile.js
 ├── pages/              # Page components
 ├── config/             # Configuration files
-└── services/           # Service layers (nếu cần)
+├── services/           # Service layers
+│   ├── chatService.js
+│   ├── imageUpload.js
+│   └── notificationService.js
+└── utils/              # Utility functions
 ```
 
-## ⚠️ Lỗi Permission Denied?
+## Tính năng chi tiết
 
-Nếu bạn gặp lỗi `Missing or insufficient permissions`, hãy:
+### Chat
+- Chat real-time với Firebase Firestore
+- Gửi tin nhắn, ảnh, file
+- Typing indicators
+- Đánh dấu đã đọc
+- Reactions cho tin nhắn (mỗi user chỉ có 1 reaction)
 
-1. Copy rules từ file trong source code:
-   - `firestore.rules` → Firebase Console > Firestore Database > Rules
-2. Click **Publish** sau khi paste
+### Posts
+- Tạo bài viết với text và ảnh
+- Like và comment
+- Xóa bài viết của mình
+- Xóa comment của mình
 
-## Tính năng đang phát triển
+### Profile
+- Xem trang cá nhân
+- Theo dõi/Hủy theo dõi
+- Xem danh sách followers/following
+- Chỉnh sửa profile
 
-- [ ] Chia sẻ bài viết
-- [ ] Thông báo real-time
-- [ ] Tìm kiếm người dùng
-- [ ] Stories
-- [ ] Video posts
-- [ ] Responsive mobile app
+### Notifications
+- Thông báo real-time cho:
+  - Like bài viết
+  - Comment bài viết
+  - Follow
+  - Tin nhắn mới
 
-## Tài liệu
+## Build cho production
 
-- [CLOUDINARY_SETUP.md](./CLOUDINARY_SETUP.md) - Hướng dẫn cấu hình Cloudinary
+```bash
+npm run build
+```
 
-## 🔐 Security Rules trong Source Code
+File build sẽ nằm trong thư mục `dist/`
 
-Rules đã được đồng bộ vào source code để dễ quản lý:
+## Lưu ý quan trọng
 
-- `firestore.rules` - Firestore Security Rules
+### Security Rules
+- **Bắt buộc**: Phải cấu hình Security Rules trong Firebase Console
+- Copy nội dung từ `firestore.rules` và paste vào Firebase Console
+- Rules đảm bảo:
+  - Chỉ user đã đăng nhập mới có thể đọc/ghi
+  - User chỉ có thể sửa profile của mình (trừ followers array)
+  - Chỉ participant mới có thể xem tin nhắn
+  - User chỉ có thể xem notifications của mình
 
-**Cách sử dụng**: Copy nội dung từ file này và paste vào Firebase Console > Firestore Database > Rules, sau đó click **Publish**.
+### Firestore Indexes
+- Nếu gặp lỗi `failed-precondition`, cần tạo composite indexes
+- Ứng dụng sẽ tự động fallback về client-side sorting nếu thiếu index
 
 ## License
 

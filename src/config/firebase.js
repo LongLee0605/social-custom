@@ -31,7 +31,6 @@ if (typeof window !== 'undefined') {
       }
     })
     .catch((err) => {
-      console.log('Analytics not supported:', err)
     })
 }
 export { analytics }

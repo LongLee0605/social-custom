@@ -88,7 +88,9 @@ const FollowSuggestions = ({ maxSuggestions = 5 }) => {
         message: 'đã theo dõi bạn',
         link: `/profile/${currentUser.uid}`,
         relatedUserId: currentUser.uid,
-      }).catch(console.error)
+      }).catch((error) => {
+        console.error('Error creating follow notification:', error)
+      })
     } catch (error) {
       console.error('Error following user:', error)
     }

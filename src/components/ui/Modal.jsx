@@ -28,7 +28,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', className = '' }
       className="fixed inset-0 z-50 overflow-y-auto"
       onClick={onClose}
     >
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen px-4 py-4">
         <div
           className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
           onClick={onClose}
@@ -36,7 +36,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', className = '' }
 
         <div
           className={clsx(
-            'inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full',
+            'relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full',
             sizes[size],
             className
           )}

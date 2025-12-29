@@ -23,6 +23,14 @@ const NotificationManager = () => {
     setToastNotifications((prev) => prev.filter((n) => n.id !== notificationId))
   }, [])
 
+  const closeHandlers = useMemo(() => {
+    const handlers = {}
+    toastNotifications.forEach((notification) => {
+      handlers[notification.id] = () => handleClose(notification.id)
+    })
+    return handlers
+  }, [toastNotifications, handleClose])
+
   return (
     <>
       {toastNotifications.map((notification, index) => (
@@ -33,7 +41,7 @@ const NotificationManager = () => {
         >
           <ToastNotification
             notification={notification}
-            onClose={useCallback(() => handleClose(notification.id), [notification.id, handleClose])}
+            onClose={closeHandlers[notification.id]}
             onMarkAsRead={markAsRead}
           />
         </div>

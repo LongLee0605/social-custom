@@ -44,17 +44,16 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, 
 
   return (
     <div
-      className={`flex items-end space-x-2 group ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} ${
+      className={`flex space-x-2 group ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} ${
         isGrouped ? 'mt-1' : 'mt-4'
       }`}
     >
       {(!isGrouped || showAvatar) && !isOwn && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 pt-[22px]">
           <Avatar
             src={senderInfo?.photoURL || null}
             alt={senderInfo?.displayName || message.senderName}
             size="sm"
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
           />
         </div>
       )}
@@ -123,7 +122,7 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, 
                     <MoreVertical className="w-4 h-4" />
                   </button>
                   {showMenu && (
-                    <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg py-1 z-10 border border-gray-200">
+                    <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg py-1 z-10 border border-gray-200" style={{ maxWidth: 'min(160px, calc(100vw - 2rem))' }}>
                       <button
                         onClick={handleReactionsToggle}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
@@ -156,22 +155,23 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, 
             )}
           </div>
 
-          {message.reactions && Object.keys(message.reactions).length > 0 && (
-            <div className="mt-1">
+          <div className="mt-1">
+            {message.reactions && typeof message.reactions === 'object' && Object.keys(message.reactions).length > 0 ? (
               <MessageReactions
                 reactions={message.reactions}
                 onReact={onReact ? handleReactClick : null}
+                isOwn={isOwn}
               />
-            </div>
-          )}
-          {(!message.reactions || Object.keys(message.reactions).length === 0) && onReact && (
-            <div className="mt-1 opacity-0 group-hover/message:opacity-100 transition-opacity">
-              <MessageReactions
-                reactions={{}}
-                onReact={handleReactClick}
-              />
-            </div>
-          )}
+            ) : onReact ? (
+              <div className={`opacity-0 group-hover/message:opacity-100 transition-opacity absolute bg-white rounded-full shadow-lg border border-gray-200 -top-1 ${isOwn ? '-left-4' : '-right-4'}`}>
+                <MessageReactions
+                  reactions={{}}
+                  onReact={handleReactClick}
+                  isOwn={isOwn}
+                />
+              </div>
+            ) : null}
+          </div>
 
           <div className={`flex items-center space-x-1 mt-1 px-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
             <span className={`text-xs ${isOwn ? 'text-gray-500' : 'text-gray-400'}`}>

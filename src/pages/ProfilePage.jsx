@@ -21,6 +21,7 @@ const ProfilePage = () => {
   const isOwnProfile = !userId || userId === currentUser?.uid
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
+  const [isTogglingFollow, setIsTogglingFollow] = useState(false)
 
   if (loading) {
     return (
@@ -63,14 +64,18 @@ const ProfilePage = () => {
                 onClick={() => setShowFollowersModal(true)}
                 className="hover:opacity-80 transition-opacity"
               >
-                <span className="font-semibold">{userProfile.followers?.length || 0}</span>
+                <span className="font-semibold">
+                  {Array.isArray(userProfile.followers) ? userProfile.followers.length : 0}
+                </span>
                 <span className="text-gray-600 ml-1">người theo dõi</span>
               </button>
               <button
                 onClick={() => setShowFollowingModal(true)}
                 className="hover:opacity-80 transition-opacity"
               >
-                <span className="font-semibold">{userProfile.following?.length || 0}</span>
+                <span className="font-semibold">
+                  {Array.isArray(userProfile.following) ? userProfile.following.length : 0}
+                </span>
                 <span className="text-gray-600 ml-1">đang theo dõi</span>
               </button>
             </div>
@@ -78,9 +83,30 @@ const ProfilePage = () => {
               <div className="flex space-x-3">
                 <Button
                   variant={isFollowing ? 'secondary' : 'primary'}
-                  onClick={() => (isFollowing ? unfollowUser() : followUser())}
+                  disabled={isTogglingFollow}
+                  onClick={async () => {
+                    if (isTogglingFollow) return
+                    
+                    setIsTogglingFollow(true)
+                    try {
+                      if (isFollowing) {
+                        await unfollowUser()
+                      } else {
+                        await followUser()
+                      }
+                    } catch (error) {
+                      console.error('Error toggling follow:', error)
+                    } finally {
+                      setIsTogglingFollow(false)
+                    }
+                  }}
                 >
-                  {isFollowing ? 'Đã theo dõi' : 'Theo dõi'}
+                  {isTogglingFollow 
+                    ? 'Đang xử lý...' 
+                    : isFollowing 
+                      ? 'Hủy theo dõi' 
+                      : 'Theo dõi'
+                  }
                 </Button>
                 <Button 
                   variant="outline"

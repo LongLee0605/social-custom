@@ -155,7 +155,9 @@ export const usePosts = (filterByFollowing = false) => {
             link: `/`,
             relatedUserId: currentUser.uid,
             relatedPostId: postId,
-          }).catch(console.error)
+          }).catch((error) => {
+            console.error('Error creating like notification:', error)
+          })
         }
       }
 
@@ -208,7 +210,9 @@ export const usePosts = (filterByFollowing = false) => {
           link: `/?postId=${postId}`,
           relatedUserId: currentUser.uid,
           relatedPostId: postId,
-        }).catch(console.error)
+        }).catch((error) => {
+          console.error('Error creating comment notification:', error)
+        })
       }
 
       return { success: true }

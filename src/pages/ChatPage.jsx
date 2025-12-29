@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import Card from '../components/ui/Card'
@@ -18,42 +18,94 @@ const ChatPage = () => {
   const [selectedChat, setSelectedChat] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showNewChatModal, setShowNewChatModal] = useState(false)
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const hasOpenedChatRef = useRef(false)
+  const openingChatRef = useRef(false)
+  const isManualSelectionRef = useRef(false)
 
   useEffect(() => {
     const userId = searchParams.get('userId')
-    if (userId && currentUser && userId !== currentUser.uid) {
+    
+    if (userId && currentUser?.uid && userId !== currentUser.uid && !hasOpenedChatRef.current && !openingChatRef.current) {
       const openChatWithUser = async () => {
         try {
+          openingChatRef.current = true
+          hasOpenedChatRef.current = true
           const result = await getOrCreateChat(currentUser.uid, userId)
+          
           if (result.success) {
-            const chat = chats.find((c) => c.id === result.chatId)
-            if (chat) {
-              setSelectedChat(chat)
-            } else {
-              // Nếu chat chưa có trong list, tạo chat mới
-              const userDoc = await getDoc(doc(db, 'users', userId))
-              if (userDoc.exists()) {
-                const userData = userDoc.data()
-                setSelectedChat({
-                  id: result.chatId,
-                  userId: userId,
-                  userName: userData.displayName,
-                  userPhotoURL: userData.photoURL,
-                  isOnline: userData.isOnline || false,
-                  lastMessage: '',
-                  unreadCount: 0,
-                })
+            setTimeout(() => {
+              const chat = chats.find((c) => c.id === result.chatId)
+              if (chat) {
+                setSelectedChat(chat)
+                setSearchParams({})
+                openingChatRef.current = false
+              } else {
+                getDoc(doc(db, 'users', userId))
+                  .then((userDoc) => {
+                    if (userDoc.exists()) {
+                      const userData = userDoc.data()
+                      setSelectedChat({
+                        id: result.chatId,
+                        userId: userId,
+                        userName: userData.displayName || 'Người dùng',
+                        userPhotoURL: userData.photoURL || null,
+                        isOnline: userData.isOnline || false,
+                        lastMessage: '',
+                        unreadCount: 0,
+                      })
+                      setSearchParams({})
+                      openingChatRef.current = false
+                    }
+                  })
+                  .catch((error) => {
+                    console.error('Error fetching user:', error)
+                    openingChatRef.current = false
+                  })
               }
-            }
+            }, 500)
           }
         } catch (error) {
           console.error('Error opening chat:', error)
+          openingChatRef.current = false
+          hasOpenedChatRef.current = false
         }
       }
       openChatWithUser()
     }
-  }, [searchParams, currentUser, chats])
+
+    return () => {
+      if (!searchParams.get('userId')) {
+        hasOpenedChatRef.current = false
+      }
+    }
+  }, [searchParams, currentUser, chats, setSearchParams])
+
+  useEffect(() => {
+    if (isManualSelectionRef.current || !selectedChat?.id) {
+      return
+    }
+
+    const updatedChat = chats.find((c) => c.id === selectedChat.id)
+    if (updatedChat) {
+      const hasChanges = 
+        updatedChat.lastMessage !== selectedChat.lastMessage ||
+        updatedChat.unreadCount !== selectedChat.unreadCount ||
+        updatedChat.isOnline !== selectedChat.isOnline ||
+        updatedChat.userName !== selectedChat.userName ||
+        updatedChat.userPhotoURL !== selectedChat.userPhotoURL
+      
+      if (hasChanges) {
+        setSelectedChat(prev => {
+          if (prev?.id === updatedChat.id && !isManualSelectionRef.current) {
+            return { ...prev, ...updatedChat }
+          }
+          return prev
+        })
+      }
+    }
+  }, [chats])
 
   const filteredChats = useMemo(() => {
     if (!searchQuery.trim()) return chats
@@ -70,7 +122,9 @@ const ChatPage = () => {
   }, [])
 
   const handleChatSelected = useCallback((chatId, user) => {
-    const newChat = {
+    isManualSelectionRef.current = true
+    
+    setSelectedChat({
       id: chatId,
       userId: user.uid,
       userName: user.displayName,
@@ -78,13 +132,39 @@ const ChatPage = () => {
       isOnline: user.isOnline || false,
       lastMessage: '',
       unreadCount: 0,
-    }
-    setSelectedChat(newChat)
-  }, [])
+    })
+    
+    setSearchParams({})
+    
+    setTimeout(() => {
+      isManualSelectionRef.current = false
+    }, 500)
+  }, [setSearchParams])
 
   const handleSelectChat = useCallback((chat) => {
-    setSelectedChat(chat)
-  }, [])
+    if (!chat?.id) return
+    
+    isManualSelectionRef.current = true
+    
+    setSelectedChat({
+      id: chat.id,
+      userId: chat.userId,
+      userName: chat.userName,
+      userPhotoURL: chat.userPhotoURL,
+      isOnline: chat.isOnline,
+      lastMessage: chat.lastMessage || '',
+      unreadCount: chat.unreadCount || 0,
+      updatedAt: chat.updatedAt,
+    })
+    
+    if (searchParams.get('userId')) {
+      setSearchParams({})
+    }
+    
+    setTimeout(() => {
+      isManualSelectionRef.current = false
+    }, 3000)
+  }, [searchParams, setSearchParams])
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -138,8 +218,8 @@ const ChatPage = () => {
         </div>
 
         <div className="lg:col-span-2">
-          {selectedChat ? (
-            <ChatWindow chat={selectedChat} />
+          {selectedChat?.id ? (
+            <ChatWindow key={selectedChat.id} chat={selectedChat} />
           ) : (
             <Card className="h-full flex items-center justify-center">
               <div className="text-center text-gray-500">

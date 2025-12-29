@@ -1,8 +1,8 @@
-import { memo, useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import Avatar from '../ui/Avatar'
 import { useUserInfo } from '../../hooks/useUserInfo'
 
-const ChatListItem = memo(({ chat, isSelected, onClick }) => {
+const ChatListItem = ({ chat, isSelected, onClick }) => {
   const userInfo = useUserInfo(chat.userId)
 
   const displayName = useMemo(() => userInfo?.displayName || chat.userName, [userInfo?.displayName, chat.userName])
@@ -15,12 +15,22 @@ const ChatListItem = memo(({ chat, isSelected, onClick }) => {
     })
   }, [chat.updatedAt])
 
+  const handleClick = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (onClick && chat?.id) {
+      onClick(chat)
+    }
+  }, [onClick, chat])
+
   return (
     <button
-      onClick={onClick}
+      type="button"
+      onClick={handleClick}
       className={`w-full p-4 hover:bg-gray-50 transition-colors text-left ${
         isSelected ? 'bg-primary-50 border-l-4 border-primary-600' : ''
       }`}
+      aria-label={`Mở cuộc trò chuyện với ${displayName}`}
     >
       <div className="flex items-center space-x-3">
         <div className="relative flex-shrink-0">
@@ -56,9 +66,7 @@ const ChatListItem = memo(({ chat, isSelected, onClick }) => {
       </div>
     </button>
   )
-})
-
-ChatListItem.displayName = 'ChatListItem'
+}
 
 export default ChatListItem
 

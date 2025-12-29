@@ -15,6 +15,18 @@ import Input from '../ui/Input'
 
 const ChatWindow = ({ chat }) => {
   const { currentUser } = useAuth()
+  
+  // Validate chat object
+  if (!chat || !chat.id) {
+    return (
+      <Card className="h-full flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <p>Lỗi: Không tìm thấy thông tin cuộc trò chuyện</p>
+        </div>
+      </Card>
+    )
+  }
+  
   const {
     messages,
     loading,
@@ -208,7 +220,7 @@ const ChatWindow = ({ chat }) => {
   }, [hasMore, loading, loadMoreMessages])
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
           <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
             <div className="flex items-center space-x-3 flex-1">
               <div className="relative">
@@ -279,7 +291,7 @@ const ChatWindow = ({ chat }) => {
 
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 bg-gray-50 relative"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-gray-50 relative"
         style={{ scrollBehavior: 'smooth' }}
         onScroll={(e) => {
           const container = e.target

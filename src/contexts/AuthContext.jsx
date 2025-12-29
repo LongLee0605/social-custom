@@ -180,9 +180,13 @@ export const AuthProvider = ({ children }) => {
             updateDoc(userDocRef, {
               isOnline: false,
               lastSeen: serverTimestamp(),
-            }).catch(console.error)
+            }).catch((error) => {
+              console.error('Error setting offline status:', error)
+            })
           }
-        }).catch(console.error)
+        }).catch((error) => {
+          console.error('Error in cleanup:', error)
+        })
       }
     }
   }, [currentUser])

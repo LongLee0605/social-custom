@@ -1,9 +1,17 @@
 import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore'
+import { getAuth } from 'firebase/auth'
 import { db } from '../config/firebase'
 
 export const createNotification = async ({ userId, type, title, message, link, relatedUserId, relatedPostId }) => {
   try {
     if (!userId) return { success: false, error: 'Missing userId' }
+
+    // Không tạo thông báo cho chính mình
+    const auth = getAuth()
+    const currentUser = auth.currentUser
+    if (currentUser && userId === currentUser.uid) {
+      return { success: false, error: 'Cannot create notification for yourself' }
+    }
 
     const userDoc = await getDoc(doc(db, 'users', userId))
     if (!userDoc.exists()) {

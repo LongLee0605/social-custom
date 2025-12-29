@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { createNotification } from '../services/notificationService'
 
 export const useMessages = (chatId) => {
   const { currentUser, userProfile } = useAuth()
@@ -218,6 +219,20 @@ export const useMessages = (chatId) => {
         }),
       })
 
+      // Tạo thông báo cho người nhận
+      if (otherParticipant) {
+        createNotification({
+          userId: otherParticipant,
+          type: 'message',
+          title: 'Bạn có tin nhắn mới',
+          message: `${userProfile?.displayName || currentUser.displayName || 'Ai đó'} đã gửi cho bạn một tin nhắn`,
+          link: `/chat?userId=${currentUser.uid}`,
+          relatedUserId: currentUser.uid,
+        }).catch((error) => {
+          console.error('Error creating message notification:', error)
+        })
+      }
+
       return { success: true, messageId: docRef.id }
     } catch (error) {
       console.error('Error sending message:', error)
@@ -294,9 +309,19 @@ export const useMessages = (chatId) => {
 
       const messageData = messageDoc.data()
       const reactions = messageData.reactions || {}
-      const userReactions = reactions[emoji] || []
+      
+      // Tìm emoji mà user hiện tại đã chọn
+      let currentUserEmoji = null
+      for (const [reactionEmoji, userIds] of Object.entries(reactions)) {
+        if (Array.isArray(userIds) && userIds.includes(currentUser.uid)) {
+          currentUserEmoji = reactionEmoji
+          break
+        }
+      }
 
-      if (userReactions.includes(currentUser.uid)) {
+      // Nếu user đã chọn emoji này rồi, thì xóa nó
+      if (currentUserEmoji === emoji) {
+        const userReactions = reactions[emoji] || []
         const updatedReactions = userReactions.filter((uid) => uid !== currentUser.uid)
         if (updatedReactions.length === 0) {
           delete reactions[emoji]
@@ -304,7 +329,22 @@ export const useMessages = (chatId) => {
           reactions[emoji] = updatedReactions
         }
       } else {
-        reactions[emoji] = [...userReactions, currentUser.uid]
+        // Nếu user chọn emoji khác, xóa emoji cũ và thêm emoji mới
+        if (currentUserEmoji) {
+          const oldReactions = reactions[currentUserEmoji] || []
+          const updatedOldReactions = oldReactions.filter((uid) => uid !== currentUser.uid)
+          if (updatedOldReactions.length === 0) {
+            delete reactions[currentUserEmoji]
+          } else {
+            reactions[currentUserEmoji] = updatedOldReactions
+          }
+        }
+        
+        // Thêm emoji mới
+        const newReactions = reactions[emoji] || []
+        if (!newReactions.includes(currentUser.uid)) {
+          reactions[emoji] = [...newReactions, currentUser.uid]
+        }
       }
 
       await updateDoc(messageRef, {
