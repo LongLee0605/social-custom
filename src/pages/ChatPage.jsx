@@ -167,38 +167,39 @@ const ChatPage = () => {
   }, [searchParams, setSearchParams])
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
-        <div className="lg:col-span-1">
+    <div className="max-w-7xl mx-auto w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 h-[calc(100vh-8rem)] sm:h-[calc(100vh-10rem)] lg:h-[calc(100vh-12rem)]">
+        <div className={`lg:col-span-1 ${selectedChat?.id ? 'hidden lg:block' : 'block'}`}>
           <Card className="h-full flex flex-col">
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Tin nhắn</h2>
+            <div className="p-3 sm:p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Tin nhắn</h2>
                 <button
                   onClick={handleNewChat}
-                  className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-1.5 sm:p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Tin nhắn mới"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
                 <input
                   type="text"
                   placeholder="Tìm kiếm..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
+                  className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 text-sm sm:text-base bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto scrollbar-hide">
               {loading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
                 </div>
               ) : filteredChats.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-gray-500 text-sm sm:text-base px-4">
                   {searchQuery ? 'Không tìm thấy cuộc trò chuyện' : 'Chưa có tin nhắn nào'}
                 </div>
               ) : (
@@ -217,14 +218,25 @@ const ChatPage = () => {
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className={`lg:col-span-2 ${selectedChat?.id ? 'block' : 'hidden lg:block'}`}>
           {selectedChat?.id ? (
-            <ChatWindow key={selectedChat.id} chat={selectedChat} />
+            <>
+              <div className="lg:hidden mb-4">
+                <button
+                  onClick={() => setSelectedChat(null)}
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                >
+                  <span>←</span>
+                  <span>Quay lại</span>
+                </button>
+              </div>
+              <ChatWindow key={selectedChat.id} chat={selectedChat} />
+            </>
           ) : (
             <Card className="h-full flex items-center justify-center">
-              <div className="text-center text-gray-500">
-                <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p>Chọn một cuộc trò chuyện để bắt đầu</p>
+              <div className="text-center text-gray-500 px-4">
+                <MessageCircle className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-sm sm:text-base">Chọn một cuộc trò chuyện để bắt đầu</p>
               </div>
             </Card>
           )}

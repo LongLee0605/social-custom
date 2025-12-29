@@ -8,6 +8,10 @@ const uploadToCloudinary = async (file, folder = 'posts', isFile = false) => {
     throw new Error('Cloudinary chưa được cấu hình. Vui lòng thêm VITE_CLOUDINARY_CLOUD_NAME và VITE_CLOUDINARY_UPLOAD_PRESET vào file .env')
   }
 
+  if (cloudName.includes('your_cloud_name') || cloudName.includes('your_') || uploadPreset.includes('your_')) {
+    throw new Error('Vui lòng cấu hình Cloudinary trong file .env với giá trị thực từ tài khoản Cloudinary của bạn. Xem README.md để biết cách cấu hình.')
+  }
+
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', uploadPreset)
@@ -25,7 +29,15 @@ const uploadToCloudinary = async (file, folder = 'posts', isFile = false) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.error?.message || `Lỗi khi upload ${isFile ? 'file' : 'ảnh'} lên Cloudinary`)
+      let errorMessage = errorData.error?.message || `Lỗi khi upload ${isFile ? 'file' : 'ảnh'} lên Cloudinary`
+      
+      if (response.status === 401) {
+        errorMessage = 'Lỗi xác thực Cloudinary. Vui lòng kiểm tra lại VITE_CLOUDINARY_CLOUD_NAME và VITE_CLOUDINARY_UPLOAD_PRESET trong file .env. Đảm bảo bạn đã cấu hình đúng giá trị từ tài khoản Cloudinary của mình.'
+      } else if (response.status === 400) {
+        errorMessage = `Lỗi cấu hình Cloudinary: ${errorData.error?.message || 'Vui lòng kiểm tra lại Upload Preset và Cloud Name'}`
+      }
+      
+      throw new Error(errorMessage)
     }
 
     const data = await response.json()

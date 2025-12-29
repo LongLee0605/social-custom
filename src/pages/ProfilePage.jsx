@@ -17,7 +17,7 @@ const ProfilePage = () => {
   const { userProfile, posts, loading, postsLoading, isFollowing, followUser, unfollowUser } = useUserProfile(
     userId || currentUser?.uid
   )
-  const { likePost, addComment, deleteComment } = usePosts()
+  const { likePost, addComment, deleteComment, reactToComment, replyComment } = usePosts()
   const isOwnProfile = !userId || userId === currentUser?.uid
   const [showFollowersModal, setShowFollowersModal] = useState(false)
   const [showFollowingModal, setShowFollowingModal] = useState(false)
@@ -42,45 +42,52 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <Card className="p-8">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-0">
+      <Card className="p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
           <Avatar
             src={userProfile.photoURL}
             alt={userProfile.displayName}
-            size="xl"
+            size="lg"
+            className="md:hidden"
           />
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <Avatar
+            src={userProfile.photoURL}
+            alt={userProfile.displayName}
+            size="xl"
+            className="hidden md:block"
+          />
+          <div className="flex-1 text-center md:text-left w-full">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               {userProfile.displayName}
             </h1>
-            <p className="text-gray-600 mb-4">{userProfile.bio || 'Chưa có tiểu sử'}</p>
-            <div className="flex items-center justify-center md:justify-start space-x-6 mb-4">
+            <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">{userProfile.bio || 'Chưa có tiểu sử'}</p>
+            <div className="flex items-center justify-center md:justify-start space-x-4 sm:space-x-6 mb-3 sm:mb-4 flex-wrap gap-y-2">
               <div>
-                <span className="font-semibold">{posts?.length || 0}</span>
-                <span className="text-gray-600 ml-1">bài viết</span>
+                <span className="font-semibold text-sm sm:text-base">{posts?.length || 0}</span>
+                <span className="text-gray-600 ml-1 text-sm sm:text-base">bài viết</span>
               </div>
               <button
                 onClick={() => setShowFollowersModal(true)}
                 className="hover:opacity-80 transition-opacity"
               >
-                <span className="font-semibold">
+                <span className="font-semibold text-sm sm:text-base">
                   {Array.isArray(userProfile.followers) ? userProfile.followers.length : 0}
                 </span>
-                <span className="text-gray-600 ml-1">người theo dõi</span>
+                <span className="text-gray-600 ml-1 text-sm sm:text-base">người theo dõi</span>
               </button>
               <button
                 onClick={() => setShowFollowingModal(true)}
                 className="hover:opacity-80 transition-opacity"
               >
-                <span className="font-semibold">
+                <span className="font-semibold text-sm sm:text-base">
                   {Array.isArray(userProfile.following) ? userProfile.following.length : 0}
                 </span>
-                <span className="text-gray-600 ml-1">đang theo dõi</span>
+                <span className="text-gray-600 ml-1 text-sm sm:text-base">đang theo dõi</span>
               </button>
             </div>
             {!isOwnProfile && (
-              <div className="flex space-x-3">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                 <Button
                   variant={isFollowing ? 'secondary' : 'primary'}
                   disabled={isTogglingFollow}
@@ -100,6 +107,7 @@ const ProfilePage = () => {
                       setIsTogglingFollow(false)
                     }
                   }}
+                  className="w-full sm:w-auto"
                 >
                   {isTogglingFollow 
                     ? 'Đang xử lý...' 
@@ -111,6 +119,7 @@ const ProfilePage = () => {
                 <Button 
                   variant="outline"
                   onClick={() => navigate(`/chat?userId=${userId}`)}
+                  className="w-full sm:w-auto"
                 >
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Nhắn tin
@@ -118,8 +127,8 @@ const ProfilePage = () => {
               </div>
             )}
             {isOwnProfile && (
-              <div className="flex space-x-3">
-                <Button variant="outline" onClick={() => navigate('/settings')}>
+              <div className="flex">
+                <Button variant="outline" onClick={() => navigate('/settings')} className="w-full sm:w-auto">
                   <Settings className="w-4 h-4 mr-2" />
                   Chỉnh sửa trang cá nhân
                 </Button>
@@ -129,11 +138,11 @@ const ProfilePage = () => {
         </div>
       </Card>
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Bài viết</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Bài viết</h2>
           {posts.length > 0 && (
-            <span className="text-sm text-gray-500">{posts.length} bài viết</span>
+            <span className="text-xs sm:text-sm text-gray-500">{posts.length} bài viết</span>
           )}
         </div>
         {postsLoading ? (
@@ -165,6 +174,8 @@ const ProfilePage = () => {
                 onLike={likePost}
                 onAddComment={addComment}
                 onDeleteComment={deleteComment}
+                onReactComment={reactToComment}
+                onReplyComment={replyComment}
               />
             ))}
           </div>

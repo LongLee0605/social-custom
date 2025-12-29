@@ -47,9 +47,27 @@ const NotificationItem = memo(({ notification, onClick }) => {
   const displayName = useMemo(() => userInfo?.displayName || notification.relatedUserName || 'Ai đó', [userInfo?.displayName, notification.relatedUserName])
   const photoURL = useMemo(() => userInfo?.photoURL || null, [userInfo?.photoURL])
 
+  const getNotificationLink = useCallback(() => {
+    if (notification.link) {
+      return notification.link
+    }
+
+    switch (notification.type) {
+      case 'like':
+      case 'comment':
+        return notification.relatedPostId ? `/?postId=${notification.relatedPostId}` : '/'
+      case 'message':
+        return notification.relatedUserId ? `/chat?userId=${notification.relatedUserId}` : '/chat'
+      case 'follow':
+        return notification.relatedUserId ? `/profile/${notification.relatedUserId}` : '/'
+      default:
+        return '/'
+    }
+  }, [notification])
+
   return (
     <Link
-      to={notification.link || '#'}
+      to={getNotificationLink()}
       onClick={handleClick}
       className={`block p-4 hover:bg-gray-50 transition-colors ${
         !notification.read ? 'bg-blue-50' : ''

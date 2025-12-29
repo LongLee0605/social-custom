@@ -11,8 +11,9 @@ import Comments from './Comments'
 import { useUserInfo } from '../../hooks/useUserInfo'
 import { Heart, MessageCircle, Share2, MoreVertical, Trash2 } from 'lucide-react'
 import { formatRelativeTime } from '../../utils/formatDate'
+import { linkifyText } from '../../utils/linkify'
 
-const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment }, ref) => {
+const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment, onReactComment, onReplyComment }, ref) => {
   const { currentUser } = useAuth()
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -27,6 +28,11 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment 
 
   const displayName = useMemo(() => userInfo?.displayName || post.userName, [userInfo?.displayName, post.userName])
   const photoURL = useMemo(() => userInfo?.photoURL || null, [userInfo?.photoURL])
+
+  const contentParts = useMemo(() => {
+    if (!post.content) return []
+    return linkifyText(post.content)
+  }, [post.content])
 
   useEffect(() => {
     setIsLiked(post.likes?.includes(currentUser?.uid) || false)
@@ -97,25 +103,32 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment 
 
 
   return (
-    <Card ref={ref} id={`post-${post.id}`}>
-      <div className="space-y-4">
+    <Card ref={ref} id={`post-${post.id}`} className="p-3 sm:p-6">
+      <div className="space-y-3 sm:space-y-4">
         <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <Link to={`/profile/${post.userId}`}>
+          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+            <Link to={`/profile/${post.userId}`} className="flex-shrink-0">
+              <Avatar
+                src={photoURL}
+                alt={displayName}
+                size="sm"
+                className="sm:hidden"
+              />
               <Avatar
                 src={photoURL}
                 alt={displayName}
                 size="md"
+                className="hidden sm:block"
               />
             </Link>
-            <div>
+            <div className="min-w-0 flex-1">
               <Link
                 to={`/profile/${post.userId}`}
-                className="font-semibold text-gray-900 hover:text-primary-600"
+                className="font-semibold text-sm sm:text-base text-gray-900 hover:text-primary-600 block truncate"
               >
                 {displayName}
               </Link>
-              <p className="text-sm text-gray-500">{formatRelativeTime(post.createdAt)}</p>
+              <p className="text-xs sm:text-sm text-gray-500">{formatRelativeTime(post.createdAt)}</p>
             </div>
           </div>
           {post.userId === currentUser?.uid && (
@@ -142,7 +155,25 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment 
         </div>
 
         {post.content && (
-          <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
+          <p className="text-sm sm:text-base text-gray-900 whitespace-pre-wrap break-words">
+            {contentParts.map((part, index) => {
+              if (part.type === 'link') {
+                return (
+                  <a
+                    key={index}
+                    href={part.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 hover:text-primary-700 underline hover:opacity-80 transition-opacity break-all"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {part.displayUrl}
+                  </a>
+                )
+              }
+              return <span key={index}>{part.content}</span>
+            })}
+          </p>
         )}
 
         {post.imageURL && (
@@ -155,27 +186,27 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment 
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-          <div className="flex items-center space-x-6">
+        <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-gray-200">
+          <div className="flex items-center space-x-4 sm:space-x-6">
             <button
               onClick={handleLike}
-              className={`flex items-center space-x-2 transition-colors ${
+              className={`flex items-center space-x-1.5 sm:space-x-2 transition-colors ${
                 isLiked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'
               }`}
             >
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-              <span>{likeCount}</span>
+              <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? 'fill-current' : ''}`} />
+              <span className="text-sm sm:text-base">{likeCount}</span>
             </button>
             <button
               onClick={toggleComments}
-              className={`flex items-center space-x-2 transition-colors ${
+              className={`flex items-center space-x-1.5 sm:space-x-2 transition-colors ${
                 showComments ? 'text-primary-600' : 'text-gray-600 hover:text-primary-600'
               }`}
             >
-              <MessageCircle className="w-5 h-5" />
-              <span>{post.commentCount || post.comments?.length || 0}</span>
+              <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-sm sm:text-base">{post.commentCount || post.comments?.length || 0}</span>
             </button>
-            <button className="flex items-center space-x-2 text-gray-600 hover:text-primary-600 transition-colors">
+            <button className="hidden sm:flex items-center space-x-2 text-gray-600 hover:text-primary-600 transition-colors">
               <Share2 className="w-5 h-5" />
               <span>Chia sẻ</span>
             </button>
@@ -188,6 +219,8 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment 
           post={post}
           onAddComment={onAddComment}
           onDeleteComment={onDeleteComment}
+          onReactComment={onReactComment}
+          onReplyComment={onReplyComment}
         />
       )}
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import Card from '../ui/Card'
 import Avatar from '../ui/Avatar'
@@ -65,9 +66,16 @@ const ChatWindow = ({ chat }) => {
   const groupedMessages = useMemo(() => {
     return filteredMessages.reduce((groups, message, index) => {
       const prevMessage = index > 0 ? filteredMessages[index - 1] : null
+      const nextMessage = index < filteredMessages.length - 1 ? filteredMessages[index + 1] : null
+      
       const timeDiff = prevMessage && message.createdAt && prevMessage.createdAt
         ? (message.createdAt.toMillis?.() || new Date(message.createdAt).getTime()) -
           (prevMessage.createdAt.toMillis?.() || new Date(prevMessage.createdAt).getTime())
+        : Infinity
+
+      const nextTimeDiff = nextMessage && message.createdAt && nextMessage.createdAt
+        ? (nextMessage.createdAt.toMillis?.() || new Date(nextMessage.createdAt).getTime()) -
+          (message.createdAt.toMillis?.() || new Date(message.createdAt).getTime())
         : Infinity
 
       const isGrouped =
@@ -75,10 +83,15 @@ const ChatWindow = ({ chat }) => {
         prevMessage.senderId === message.senderId &&
         timeDiff < 300000
 
+      const hasTimeGap = timeDiff >= 180000
+      const nextHasTimeGap = nextTimeDiff >= 180000
+
       groups.push({
         ...message,
         isGrouped,
         showAvatar: !isGrouped,
+        hasTimeGap,
+        showTime: hasTimeGap || (!nextHasTimeGap && index === filteredMessages.length - 1),
       })
 
       return groups
@@ -221,56 +234,77 @@ const ChatWindow = ({ chat }) => {
 
   return (
     <Card className="h-full flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
-            <div className="flex items-center space-x-3 flex-1">
-              <div className="relative">
+          <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-white">
+            <Link
+              to={`/profile/${chat.userId}`}
+              className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer"
+            >
+              <div className="relative flex-shrink-0">
+                <Avatar
+                  src={userInfo?.photoURL || null}
+                  alt={userInfo?.displayName || chat.userName}
+                  size="sm"
+                  className="sm:hidden"
+                />
                 <Avatar
                   src={userInfo?.photoURL || null}
                   alt={userInfo?.displayName || chat.userName}
                   size="md"
+                  className="hidden sm:block"
                 />
                 {isOnline && (
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full"></span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 truncate">{userInfo?.displayName || chat.userName}</h3>
-                <p className="text-sm text-gray-500 truncate">
+                <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate hover:text-primary-600 transition-colors">
+                  {userInfo?.displayName || chat.userName}
+                </h3>
+                <p className="text-xs sm:text-sm text-gray-500 truncate">
                   {typingUsers.length > 0
                     ? 'Đang soạn tin nhắn...'
                     : getStatusText()}
                 </p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
+              </div>
+            </Link>
+        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           <button
             onClick={() => setShowSearch(!showSearch)}
-            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
             title="Tìm kiếm tin nhắn"
           >
-            <Search className="w-5 h-5" />
+            <Search className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <button className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors">
+          <button 
+            className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+            title="Gọi điện"
+          >
             <Phone className="w-5 h-5" />
           </button>
-          <button className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors">
+          <button 
+            className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+            title="Gọi video"
+          >
             <Video className="w-5 h-5" />
           </button>
-          <button className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors">
+          <button 
+            className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+            title="Thêm"
+          >
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       {showSearch && (
-        <div className="p-2 border-b border-gray-200 bg-white">
+        <div className="p-2 sm:p-3 border-b border-gray-200 bg-white">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm tin nhắn..."
-              className="pl-10"
+              className="pl-9 sm:pl-10 text-sm sm:text-base"
             />
             {searchQuery && (
               <button
@@ -291,7 +325,7 @@ const ChatWindow = ({ chat }) => {
 
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-gray-50 relative"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-4 bg-gray-50 relative scrollbar-hide"
         style={{ scrollBehavior: 'smooth' }}
         onScroll={(e) => {
           const container = e.target
@@ -338,6 +372,8 @@ const ChatWindow = ({ chat }) => {
                   message={message}
                   isGrouped={message.isGrouped}
                   showAvatar={message.showAvatar}
+                  hasTimeGap={message.hasTimeGap}
+                  showTime={message.showTime}
                   onEdit={handleEdit}
                   onDelete={handleDeleteMessage}
                   onReact={handleReactMessage}
@@ -351,9 +387,9 @@ const ChatWindow = ({ chat }) => {
         {showScrollButton && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-4 right-4 bg-primary-600 text-white rounded-full p-3 shadow-lg hover:bg-primary-700 transition-colors z-10"
+            className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 bg-primary-600 text-white rounded-full p-2 sm:p-3 shadow-lg hover:bg-primary-700 transition-colors z-10"
           >
-            <ArrowDown className="w-5 h-5" />
+            <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         )}
       </div>

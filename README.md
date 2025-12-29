@@ -162,6 +162,56 @@ npm run build
 
 File build sẽ nằm trong thư mục `dist/`
 
+## Deploy lên Firebase Hosting
+
+### 1. Đăng nhập Firebase CLI
+
+Trước khi deploy, bạn cần đăng nhập vào Firebase:
+
+```bash
+npx firebase login
+```
+
+Lệnh này sẽ mở trình duyệt để bạn đăng nhập với tài khoản Google của mình. Sau khi đăng nhập thành công, bạn có thể tiếp tục.
+
+### 2. Kiểm tra project Firebase
+
+Đảm bảo project ID trong file `.firebaserc` khớp với project của bạn:
+
+```bash
+npx firebase projects:list
+```
+
+Nếu cần thay đổi project:
+
+```bash
+npx firebase use <project-id>
+```
+
+### 3. Deploy
+
+Deploy toàn bộ (build + hosting):
+
+```bash
+npm run deploy
+```
+
+Hoặc chỉ deploy hosting (sau khi đã build):
+
+```bash
+npm run deploy:hosting
+```
+
+### 4. Khởi tạo Firebase Hosting (lần đầu)
+
+Nếu chưa khởi tạo Firebase Hosting:
+
+```bash
+npx firebase init hosting
+```
+
+Lưu ý: Chọn `dist` làm thư mục public directory.
+
 ## Lưu ý quan trọng
 
 ### Security Rules

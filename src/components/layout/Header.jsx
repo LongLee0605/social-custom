@@ -97,8 +97,8 @@ const Header = () => {
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="container-custom">
-        <div className="flex items-center justify-between h-16">
+      <div className="container-custom px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16">
           <Link to="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">S</span>
@@ -175,22 +175,23 @@ const Header = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 sm:space-x-2">
             <Link
               to="/chat"
               className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors relative"
+              title="Tin nhắn"
             >
-              <MessageCircle className="w-6 h-6" />
+              <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
               {totalUnreadChats > 0 && (
-                <span className="absolute top-1 right-1 bg-red-500 text-white text-xs font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-xs font-medium rounded-full min-w-[16px] h-4 sm:min-w-[18px] sm:h-[18px] flex items-center justify-center px-0.5 sm:px-1 text-[10px] sm:text-xs">
                   {totalUnreadChats > 99 ? '99+' : totalUnreadChats}
                 </span>
               )}
             </Link>
             <NotificationDropdown />
             
-            <div className="relative group ml-2">
-              <button className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors">
+            <div className="relative group ml-1 sm:ml-2">
+              <button className="flex items-center space-x-1 sm:space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors">
                 <Avatar
                   src={currentUserInfo?.photoURL || userProfile?.photoURL || currentUser?.photoURL}
                   alt={currentUserInfo?.displayName || userProfile?.displayName || currentUser?.displayName}
@@ -198,7 +199,7 @@ const Header = () => {
                 />
               </button>
               
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                 <Link
                   to={`/profile/${currentUser?.uid}`}
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

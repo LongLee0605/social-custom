@@ -1,11 +1,12 @@
 import { useEffect, memo, useCallback, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Avatar from '../ui/Avatar'
 import { useUserInfo } from '../../hooks/useUserInfo'
-import { Heart, MessageCircle, UserPlus, X } from 'lucide-react'
+import { Heart, MessageCircle, UserPlus, MessageSquare, X } from 'lucide-react'
 
 const ToastNotification = memo(({ notification, onClose, onMarkAsRead }) => {
   const userInfo = useUserInfo(notification.relatedUserId)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -23,31 +24,58 @@ const ToastNotification = memo(({ notification, onClose, onMarkAsRead }) => {
         return <MessageCircle className="w-5 h-5 text-blue-500" />
       case 'follow':
         return <UserPlus className="w-5 h-5 text-green-500" />
+      case 'message':
+        return <MessageSquare className="w-5 h-5 text-purple-500" />
       default:
         return <MessageCircle className="w-5 h-5 text-gray-500" />
     }
   }, [])
 
-  const handleClick = useCallback(() => {
+  const getNotificationLink = useCallback(() => {
+    if (notification.link) {
+      return notification.link
+    }
+
+    switch (notification.type) {
+      case 'like':
+      case 'comment':
+        return notification.relatedPostId ? `/?postId=${notification.relatedPostId}` : '/'
+      case 'message':
+        return notification.relatedUserId ? `/chat?userId=${notification.relatedUserId}` : '/chat'
+      case 'follow':
+        return notification.relatedUserId ? `/profile/${notification.relatedUserId}` : '/'
+      default:
+        return '/'
+    }
+  }, [notification])
+
+  const handleClick = useCallback((e) => {
+    e.preventDefault()
     if (!notification.read && onMarkAsRead) {
       onMarkAsRead(notification.id)
     }
+    const link = getNotificationLink()
+    if (link && link !== '#') {
+      navigate(link)
+    }
     onClose()
-  }, [notification.read, notification.id, onMarkAsRead, onClose])
+  }, [notification.read, notification.id, onMarkAsRead, onClose, navigate, getNotificationLink])
 
   const handleCloseClick = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
+    if (!notification.read && onMarkAsRead) {
+      onMarkAsRead(notification.id)
+    }
     onClose()
-  }, [onClose])
+  }, [onClose, notification.read, notification.id, onMarkAsRead])
 
   const displayName = useMemo(() => userInfo?.displayName || notification.relatedUserName || 'Ai đó', [userInfo?.displayName, notification.relatedUserName])
   const photoURL = useMemo(() => userInfo?.photoURL || null, [userInfo?.photoURL])
 
   return (
-    <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 min-w-[320px] max-w-[400px] animate-slide-in">
-      <Link
-        to={notification.link || '#'}
+    <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 min-w-[320px] max-w-[400px] animate-slide-in cursor-pointer">
+      <div
         onClick={handleClick}
         className="flex items-start space-x-3"
       >
@@ -81,7 +109,7 @@ const ToastNotification = memo(({ notification, onClose, onMarkAsRead }) => {
         >
           <X className="w-4 h-4" />
         </button>
-      </Link>
+      </div>
     </div>
   )
 })

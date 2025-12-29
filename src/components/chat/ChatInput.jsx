@@ -70,6 +70,16 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
   const handleSendImage = async () => {
     if (!selectedImage || disabled || uploading) return
 
+    if (!onSendImage) {
+      setAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Chức năng gửi ảnh chưa được cấu hình.',
+      })
+      return
+    }
+
     try {
       setUploading(true)
       const maxSize = 10 * 1024 * 1024
@@ -86,6 +96,11 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
 
       const imagePath = `chat-images/${Date.now()}_${selectedImage.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
       const imageURL = await uploadImage(selectedImage, imagePath)
+      
+      if (!imageURL) {
+        throw new Error('Không nhận được URL ảnh sau khi upload')
+      }
+
       await onSendImage(imageURL, selectedImage.name)
       setSelectedImage(null)
       setImagePreview(null)
@@ -95,7 +110,7 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
         isOpen: true,
         type: 'error',
         title: 'Lỗi upload ảnh',
-        message: error.message || 'Lỗi khi upload ảnh. Vui lòng thử lại.',
+        message: error.message || 'Lỗi khi upload ảnh. Vui lòng kiểm tra cấu hình Cloudinary và thử lại.',
       })
     } finally {
       setUploading(false)
@@ -210,50 +225,50 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
   return (
     <div className="border-t border-gray-200 bg-white">
       {imagePreview && (
-        <div className="p-2 border-b border-gray-200 relative">
+        <div className="p-2 sm:p-3 border-b border-gray-200 relative">
           <img
             src={imagePreview}
             alt="Preview"
-            className="w-32 h-32 object-cover rounded-lg"
+            className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg"
           />
           <button
             onClick={() => {
               setImagePreview(null)
               setSelectedImage(null)
             }}
-            className="absolute top-4 right-4 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
+            className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3 h-3 sm:w-4 sm:h-4" />
           </button>
         </div>
       )}
 
       {selectedFile && (
-        <div className="p-2 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Paperclip className="w-5 h-5 text-gray-400" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+        <div className="p-2 sm:p-3 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center space-x-2 min-w-0 flex-1">
+            <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
               <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
             </div>
           </div>
           <button
             onClick={() => setSelectedFile(null)}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 flex-shrink-0 ml-2"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       )}
 
       {showEmojiPicker && (
-        <div className="p-4 border-b border-gray-200 bg-gray-50 max-h-48 overflow-y-auto overflow-x-hidden">
-          <div className="grid grid-cols-8 gap-2 max-w-full">
+        <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 max-h-48 overflow-y-auto overflow-x-hidden scrollbar-hide">
+          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1 sm:gap-2 max-w-full">
             {EMOJI_LIST.map((emoji) => (
               <button
                 key={emoji}
                 onClick={() => insertEmoji(emoji)}
-                className="text-2xl hover:scale-125 transition-transform p-1 hover:bg-gray-200 rounded"
+                className="text-xl sm:text-2xl hover:scale-125 transition-transform p-1 hover:bg-gray-200 rounded"
               >
                 {emoji}
               </button>
@@ -262,9 +277,9 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
         </div>
       )}
 
-      <form onSubmit={handleSend} className="p-4">
-        <div className="flex items-end space-x-2">
-          <div className="flex items-center space-x-1">
+      <form onSubmit={handleSend} className="p-2 sm:p-4">
+        <div className="flex items-center space-x-1 sm:space-x-2">
+          <div className="flex items-center space-x-0.5 sm:space-x-1 flex-shrink-0">
             <input
               ref={imageInputRef}
               type="file"
@@ -281,31 +296,34 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
             <button
               type="button"
               onClick={() => imageInputRef.current?.click()}
-              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
               disabled={disabled}
+              title="Gửi ảnh"
             >
-              <ImageIcon className="w-5 h-5" />
+              <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
               disabled={disabled}
+              title="Gửi file"
             >
-              <Paperclip className="w-5 h-5" />
+              <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
               disabled={disabled}
+              title="Emoji"
             >
-              <Smile className="w-5 h-5" />
+              <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
 
-          <div className="flex-1 relative">
-            <input
+          <div className="flex flex-1 relative min-w-0">
+            <textarea
               ref={textareaRef}
               value={messageText}
               onChange={(e) => {
@@ -323,7 +341,7 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
               }}
               placeholder="Nhập tin nhắn..."
               rows={1}
-              className="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none max-h-32 overflow-y-auto"
+              className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none max-h-20 sm:max-h-24 overflow-y-auto scrollbar-hide"
               disabled={disabled}
             />
           </div>
@@ -332,12 +350,12 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
             type="submit"
             variant="primary"
             disabled={(!messageText.trim() && !selectedImage && !selectedFile) || disabled || uploading}
-            className="rounded-full p-2"
+            className="rounded-full p-1.5 sm:p-2 flex-shrink-0"
           >
             {uploading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
             ) : (
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
             )}
           </Button>
         </div>

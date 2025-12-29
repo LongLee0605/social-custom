@@ -5,8 +5,9 @@ import { useUserInfo } from '../../hooks/useUserInfo'
 import { formatRelativeTime, formatMessageTime } from '../../utils/formatDate'
 import { MoreVertical, Trash2, Edit2, Smile } from 'lucide-react'
 import MessageReactions from './MessageReactions'
+import { linkifyText } from '../../utils/linkify'
 
-const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, onReact, onRetry }) => {
+const MessageBubble = memo(({ message, isGrouped, showAvatar, hasTimeGap, showTime, onDelete, onEdit, onReact, onRetry }) => {
   const { currentUser } = useAuth()
   const isOwn = useMemo(() => message.senderId === currentUser?.uid, [message.senderId, currentUser?.uid])
   const [showMenu, setShowMenu] = useState(false)
@@ -42,24 +43,34 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, 
     }
   }, [onReact, message.id])
 
+  const hasReactions = useMemo(() => {
+    return message.reactions && typeof message.reactions === 'object' && Object.keys(message.reactions).length > 0
+  }, [message.reactions])
+
+  const textParts = useMemo(() => {
+    if (!message.text) return []
+    return linkifyText(message.text)
+  }, [message.text])
+
   return (
     <div
       className={`flex space-x-2 group ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} ${
-        isGrouped ? 'mt-1' : 'mt-4'
+        hasTimeGap ? 'mt-6' : isGrouped && !hasReactions ? 'mt-0' : isGrouped ? 'mt-1' : 'mt-4'
       }`}
     >
-      {(!isGrouped || showAvatar) && !isOwn && (
-        <div className="flex-shrink-0 pt-[22px]">
-          <Avatar
-            src={senderInfo?.photoURL || null}
-            alt={senderInfo?.displayName || message.senderName}
-            size="sm"
-          />
-        </div>
-      )}
-      {isOwn && <div className="flex-shrink-0 w-8"></div>}
+      <div className="flex-shrink-0 w-8">
+        {(!isGrouped || showAvatar) && !isOwn && (
+          <div className="pt-[22px]">
+            <Avatar
+              src={senderInfo?.photoURL || null}
+              alt={senderInfo?.displayName || message.senderName}
+              size="sm"
+            />
+          </div>
+        )}
+      </div>
 
-      <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%] lg:max-w-[60%]`}>
+      <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[75%] lg:max-w-[60%]`}>
         {!isGrouped && !isOwn && (
           <span className="text-xs text-gray-500 mb-1 px-1">{senderInfo?.displayName || message.senderName}</span>
         )}
@@ -81,7 +92,25 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, 
                 {message.edited && (
                   <span className="text-xs opacity-70 mr-1">(đã chỉnh sửa)</span>
                 )}
-                {message.text}
+                {textParts.map((part, index) => {
+                  if (part.type === 'link') {
+                    return (
+                      <a
+                        key={index}
+                        href={part.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`underline hover:opacity-80 transition-opacity ${
+                          isOwn ? 'text-blue-200' : 'text-primary-600'
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {part.displayUrl}
+                      </a>
+                    )
+                  }
+                  return <span key={index}>{part.content}</span>
+                })}
               </p>
             )}
 
@@ -155,51 +184,63 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, 
             )}
           </div>
 
-          <div className="mt-1">
-            {message.reactions && typeof message.reactions === 'object' && Object.keys(message.reactions).length > 0 ? (
+          {hasReactions && (
+            <div className="mt-1">
               <MessageReactions
                 reactions={message.reactions}
                 onReact={onReact ? handleReactClick : null}
                 isOwn={isOwn}
               />
-            ) : onReact ? (
-              <div className={`opacity-0 group-hover/message:opacity-100 transition-opacity absolute bg-white rounded-full shadow-lg border border-gray-200 -top-1 ${isOwn ? '-left-4' : '-right-4'}`}>
-                <MessageReactions
-                  reactions={{}}
-                  onReact={handleReactClick}
-                  isOwn={isOwn}
-                />
-              </div>
-            ) : null}
-          </div>
+            </div>
+          )}
+          {!hasReactions && onReact && (
+            <div className={`opacity-0 group-hover/message:opacity-100 transition-opacity absolute bg-white rounded-full shadow-lg border border-gray-200 -top-1 ${isOwn ? '-left-4' : '-right-4'}`}>
+              <MessageReactions
+                reactions={{}}
+                onReact={handleReactClick}
+                isOwn={isOwn}
+              />
+            </div>
+          )}
 
-          <div className={`flex items-center space-x-1 mt-1 px-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
-            <span className={`text-xs ${isOwn ? 'text-gray-500' : 'text-gray-400'}`}>
-              {formatMessageTime(message.createdAt)}
-            </span>
-            {isOwn && (
-              <>
-                {message.status === 'sending' && (
-                  <span className="text-xs text-gray-400 animate-pulse">⏳</span>
-                )}
-                {message.status === 'failed' && onRetry && (
-                  <button
-                    onClick={onRetry}
-                    className="text-xs text-red-500 hover:text-red-700"
-                    title="Gửi lại"
-                  >
-                    ⚠️
-                  </button>
-                )}
-                {message.status === 'sent' && message.read && (
-                  <span className="text-xs text-primary-600" title="Đã đọc">✓✓</span>
-                )}
-                {message.status === 'sent' && !message.read && (
-                  <span className="text-xs text-gray-400" title="Đã gửi">✓</span>
-                )}
-              </>
-            )}
-          </div>
+          {hasTimeGap && (
+            <div className="flex items-center justify-center mt-2 mb-1 w-full">
+              <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-full">
+                {formatMessageTime(message.createdAt)}
+              </span>
+            </div>
+          )}
+          {!hasTimeGap && (
+            <div className={`flex items-center space-x-1 mt-1 px-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
+              {showTime && (
+                <span className={`text-xs ${isOwn ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {formatMessageTime(message.createdAt)}
+                </span>
+              )}
+              {isOwn && (
+                <>
+                  {message.status === 'sending' && (
+                    <span className="text-xs text-gray-400 animate-pulse">⏳</span>
+                  )}
+                  {message.status === 'failed' && onRetry && (
+                    <button
+                      onClick={onRetry}
+                      className="text-xs text-red-500 hover:text-red-700"
+                      title="Gửi lại"
+                    >
+                      ⚠️
+                    </button>
+                  )}
+                  {message.status === 'sent' && message.read && (
+                    <span className="text-xs text-primary-600" title="Đã đọc">✓✓</span>
+                  )}
+                  {message.status === 'sent' && !message.read && (
+                    <span className="text-xs text-gray-400" title="Đã gửi">✓</span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

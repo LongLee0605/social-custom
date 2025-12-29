@@ -225,7 +225,7 @@ export const useMessages = (chatId) => {
           userId: otherParticipant,
           type: 'message',
           title: 'Bạn có tin nhắn mới',
-          message: `${userProfile?.displayName || currentUser.displayName || 'Ai đó'} đã gửi cho bạn một tin nhắn`,
+          message: 'đã gửi cho bạn một tin nhắn',
           link: `/chat?userId=${currentUser.uid}`,
           relatedUserId: currentUser.uid,
         }).catch((error) => {
@@ -286,12 +286,57 @@ export const useMessages = (chatId) => {
       const messageRef = doc(db, 'chats', chatId, 'messages', messageId)
       const messageDoc = await getDoc(messageRef)
       
-      if (messageDoc.exists() && messageDoc.data().senderId === currentUser.uid) {
-        await deleteDoc(messageRef)
-        return { success: true }
+      if (!messageDoc.exists() || messageDoc.data().senderId !== currentUser.uid) {
+        return { success: false, error: 'Unauthorized' }
       }
 
-      return { success: false, error: 'Unauthorized' }
+      const deletedMessageData = messageDoc.data()
+      
+      const chatDoc = await getDoc(doc(db, 'chats', chatId))
+      const chatData = chatDoc.data()
+      const currentLastMessage = chatData?.lastMessage || ''
+
+      const deletedMessageText = deletedMessageData.text || 
+        (deletedMessageData.imageURL ? '📷 Đã gửi một ảnh' : 
+         deletedMessageData.fileName ? `📎 ${deletedMessageData.fileName}` : 
+         '📎 Đã gửi một file')
+
+      const isLastMessage = currentLastMessage === deletedMessageText || 
+        (deletedMessageData.text && currentLastMessage === deletedMessageData.text.trim())
+
+      await deleteDoc(messageRef)
+
+      if (isLastMessage) {
+        const messagesQuery = query(
+          collection(db, 'chats', chatId, 'messages'),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        )
+        
+        const messagesSnapshot = await getDocs(messagesQuery)
+        
+        if (!messagesSnapshot.empty) {
+          const lastMessageDoc = messagesSnapshot.docs[0]
+          const lastMessageData = lastMessageDoc.data()
+          
+          const newLastMessage = lastMessageData.text || 
+            (lastMessageData.imageURL ? '📷 Đã gửi một ảnh' : 
+             lastMessageData.fileName ? `📎 ${lastMessageData.fileName}` : 
+             '📎 Đã gửi một file')
+          
+          await updateDoc(doc(db, 'chats', chatId), {
+            lastMessage: newLastMessage,
+            updatedAt: serverTimestamp(),
+          })
+        } else {
+          await updateDoc(doc(db, 'chats', chatId), {
+            lastMessage: '',
+            updatedAt: serverTimestamp(),
+          })
+        }
+      }
+
+      return { success: true }
     } catch (error) {
       console.error('Error deleting message:', error)
       return { success: false, error: error.message }

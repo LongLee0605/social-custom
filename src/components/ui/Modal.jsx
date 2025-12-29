@@ -28,7 +28,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', className = '' }
       className="fixed inset-0 z-50 overflow-y-auto"
       onClick={onClose}
     >
-      <div className="flex items-center justify-center min-h-screen px-4 py-4">
+      <div className="flex items-center justify-center min-h-screen px-2 sm:px-4 py-2 sm:py-4">
         <div
           className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
           onClick={onClose}
@@ -36,24 +36,24 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', className = '' }
 
         <div
           className={clsx(
-            'relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full',
+            'relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full mx-2 sm:mx-0',
             sizes[size],
             className
           )}
           onClick={(e) => e.stopPropagation()}
         >
           {title && (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">{title}</h3>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 transition-colors"
+                className="text-gray-400 hover:text-gray-500 transition-colors p-1"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
           )}
-          <div className="px-6 py-4">{children}</div>
+          <div className="px-4 sm:px-6 py-3 sm:py-4">{children}</div>
         </div>
       </div>
     </div>

@@ -1,21 +1,26 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useNotifications } from '../../hooks/useNotifications'
 import ToastNotification from './ToastNotification'
 
 const NotificationManager = () => {
   const { notifications, markAsRead } = useNotifications()
   const [toastNotifications, setToastNotifications] = useState([])
+  const displayedNotificationIds = useRef(new Set())
 
   const newNotifications = useMemo(() => {
     return notifications.filter(
-      (n) => !n.read && !toastNotifications.find((t) => t.id === n.id)
+      (n) => !n.read && !displayedNotificationIds.current.has(n.id)
     )
-  }, [notifications, toastNotifications])
+  }, [notifications])
 
   useEffect(() => {
     if (newNotifications.length > 0) {
       const latestNotification = newNotifications[0]
-      setToastNotifications((prev) => [latestNotification, ...prev.slice(0, 2)])
+      displayedNotificationIds.current.add(latestNotification.id)
+      setToastNotifications((prev) => {
+        const filtered = prev.filter((n) => n.id !== latestNotification.id)
+        return [latestNotification, ...filtered].slice(0, 3)
+      })
     }
   }, [newNotifications])
 

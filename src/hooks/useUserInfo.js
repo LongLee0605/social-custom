@@ -18,17 +18,26 @@ export const useUserInfo = (userId) => {
     setLoading(true)
 
     const userDocRef = doc(db, 'users', userId)
+    
     const unsubscribe = onSnapshot(
       userDocRef,
-      (doc) => {
-        if (doc.exists()) {
-          const data = doc.data()
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data()
           const info = {
             displayName: data.displayName || 'Người dùng',
             photoURL: data.photoURL || null,
           }
-          userInfoCache.set(userId, info)
-          setUserInfo(info)
+          const cachedInfo = userInfoCache.get(userId)
+          
+          if (!cachedInfo || cachedInfo.photoURL !== info.photoURL || cachedInfo.displayName !== info.displayName) {
+            userInfoCache.set(userId, info)
+            setUserInfo(info)
+          } else if (cachedInfo) {
+            setUserInfo(cachedInfo)
+          } else {
+            setUserInfo(info)
+          }
         } else {
           userInfoCache.delete(userId)
           setUserInfo(null)
@@ -37,8 +46,9 @@ export const useUserInfo = (userId) => {
       },
       (error) => {
         console.error('Error fetching user info:', error)
-        if (userInfoCache.has(userId)) {
-          setUserInfo(userInfoCache.get(userId))
+        const cachedInfo = userInfoCache.get(userId)
+        if (cachedInfo) {
+          setUserInfo(cachedInfo)
         } else {
           setUserInfo(null)
         }
@@ -46,8 +56,9 @@ export const useUserInfo = (userId) => {
       }
     )
 
-    if (userInfoCache.has(userId)) {
-      setUserInfo(userInfoCache.get(userId))
+    const cachedInfo = userInfoCache.get(userId)
+    if (cachedInfo) {
+      setUserInfo(cachedInfo)
       setLoading(false)
     }
 
@@ -55,5 +66,13 @@ export const useUserInfo = (userId) => {
   }, [userId])
 
   return userInfo
+}
+
+export const clearUserInfoCache = (userId) => {
+  if (userId) {
+    userInfoCache.delete(userId)
+  } else {
+    userInfoCache.clear()
+  }
 }
 
