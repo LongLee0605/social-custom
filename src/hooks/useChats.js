@@ -24,36 +24,49 @@ export const useChats = () => {
       q,
       async (snapshot) => {
       const chatsData = await Promise.all(
-        snapshot.docs.map(async (doc) => {
-          const chatData = doc.data()
-          const otherParticipantId = chatData.participants.find(
+        snapshot.docs.map(async (docSnap) => {
+          const chatData = docSnap.data()
+          const otherParticipantId = chatData.participants?.find(
             (id) => id !== currentUser.uid
           )
 
           if (otherParticipantId) {
-            const userDoc = await getDoc(doc(db, 'users', otherParticipantId))
-            if (userDoc.exists()) {
-              const userData = userDoc.data()
-              return {
-                id: doc.id,
-                userId: otherParticipantId,
-                userName: userData.displayName,
-                userPhotoURL: userData.photoURL,
-                isOnline: userData.isOnline || false,
-                lastMessage: chatData.lastMessage || '',
-                unreadCount: chatData.unreadCount?.[currentUser.uid] || 0,
-                updatedAt: chatData.updatedAt,
+            try {
+              const userDoc = await getDoc(doc(db, 'users', otherParticipantId))
+              if (userDoc.exists()) {
+                const userData = userDoc.data()
+                return {
+                  id: docSnap.id,
+                  userId: otherParticipantId,
+                  userName: userData.displayName || 'Người dùng',
+                  userPhotoURL: userData.photoURL || null,
+                  isOnline: userData.isOnline || false,
+                  lastMessage: chatData.lastMessage || '',
+                  unreadCount: chatData.unreadCount?.[currentUser.uid] || 0,
+                  updatedAt: chatData.updatedAt || chatData.createdAt,
+                  typing: chatData.typing?.[otherParticipantId] || false,
+                }
               }
+            } catch (error) {
+              console.error(`Error fetching user ${otherParticipantId}:`, error)
             }
           }
           return null
         })
       )
 
-      setChats(chatsData.filter(Boolean).sort((a, b) => {
-        if (!a.updatedAt || !b.updatedAt) return 0
-        return b.updatedAt.toMillis() - a.updatedAt.toMillis()
-      }))
+      const validChats = chatsData.filter(Boolean)
+      validChats.sort((a, b) => {
+        if (!a.updatedAt || !b.updatedAt) {
+          if (!a.updatedAt && !b.updatedAt) return 0
+          return !a.updatedAt ? 1 : -1
+        }
+        const aTime = a.updatedAt.toMillis?.() || new Date(a.updatedAt).getTime()
+        const bTime = b.updatedAt.toMillis?.() || new Date(b.updatedAt).getTime()
+        return bTime - aTime
+      })
+
+      setChats(validChats)
       setLoading(false)
     },
     (error) => {

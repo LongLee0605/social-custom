@@ -40,17 +40,23 @@ export const useTyping = (chatId) => {
 
       setIsTyping(typing)
 
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = null
+      }
+
       if (typing) {
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current)
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          setTyping(false)
+        typingTimeoutRef.current = setTimeout(async () => {
+          try {
+            await updateDoc(chatDocRef, {
+              [`typing.${currentUser.uid}`]: false,
+              updatedAt: serverTimestamp(),
+            })
+            setIsTyping(false)
+          } catch (error) {
+            console.error('Error clearing typing status:', error)
+          }
         }, 3000)
-      } else {
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current)
-        }
       }
     } catch (error) {
       console.error('Error setting typing status:', error)

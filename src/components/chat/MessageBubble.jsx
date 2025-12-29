@@ -6,7 +6,7 @@ import { formatRelativeTime, formatMessageTime } from '../../utils/formatDate'
 import { MoreVertical, Trash2, Edit2, Smile } from 'lucide-react'
 import MessageReactions from './MessageReactions'
 
-const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, onReact }) => {
+const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, onReact, onRetry }) => {
   const { currentUser } = useAuth()
   const isOwn = useMemo(() => message.senderId === currentUser?.uid, [message.senderId, currentUser?.uid])
   const [showMenu, setShowMenu] = useState(false)
@@ -69,9 +69,13 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, 
           <div
             className={`relative px-4 py-2 rounded-2xl shadow-sm transition-all ${
               isOwn
-                ? 'bg-primary-600 text-white rounded-tr-sm'
+                ? message.status === 'failed'
+                  ? 'bg-red-100 text-red-900 border border-red-300 rounded-tr-sm'
+                  : 'bg-primary-600 text-white rounded-tr-sm'
                 : 'bg-white text-gray-900 border border-gray-200 rounded-tl-sm'
-            } ${isGrouped ? (isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm') : ''}`}
+            } ${isGrouped ? (isOwn ? 'rounded-tr-sm' : 'rounded-tl-sm') : ''} ${
+              message.status === 'sending' ? 'opacity-70' : ''
+            }`}
           >
             {message.text && (
               <p className={`whitespace-pre-wrap break-words ${isOwn ? 'text-white' : 'text-gray-900'}`}>
@@ -173,11 +177,27 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, onDelete, onEdit, 
             <span className={`text-xs ${isOwn ? 'text-gray-500' : 'text-gray-400'}`}>
               {formatMessageTime(message.createdAt)}
             </span>
-            {isOwn && message.read && (
-              <span className="text-xs text-primary-600">✓✓</span>
-            )}
-            {isOwn && !message.read && message.sent && (
-              <span className="text-xs text-gray-400">✓</span>
+            {isOwn && (
+              <>
+                {message.status === 'sending' && (
+                  <span className="text-xs text-gray-400 animate-pulse">⏳</span>
+                )}
+                {message.status === 'failed' && onRetry && (
+                  <button
+                    onClick={onRetry}
+                    className="text-xs text-red-500 hover:text-red-700"
+                    title="Gửi lại"
+                  >
+                    ⚠️
+                  </button>
+                )}
+                {message.status === 'sent' && message.read && (
+                  <span className="text-xs text-primary-600" title="Đã đọc">✓✓</span>
+                )}
+                {message.status === 'sent' && !message.read && (
+                  <span className="text-xs text-gray-400" title="Đã gửi">✓</span>
+                )}
+              </>
             )}
           </div>
         </div>

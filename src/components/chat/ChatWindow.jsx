@@ -9,7 +9,7 @@ import { useUserInfo } from '../../hooks/useUserInfo'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
 import { formatRelativeTime } from '../../utils/formatDate'
-import { MoreVertical, Phone, Video, Search, ArrowDown } from 'lucide-react'
+import { MoreVertical, Phone, Video, Search, ArrowDown, X } from 'lucide-react'
 import AlertModal from '../ui/AlertModal'
 import Input from '../ui/Input'
 
@@ -18,11 +18,14 @@ const ChatWindow = ({ chat }) => {
   const {
     messages,
     loading,
+    hasMore,
+    loadMoreMessages,
     sendMessage,
     editMessage,
     deleteMessage,
     reactToMessage,
     markAsRead,
+    retryFailedMessage,
   } = useMessages(chat.id)
   const { typingUsers, setTyping } = useTyping(chat.id)
   const { isOnline, lastSeen } = useOnlineStatus(chat.userId)
@@ -32,12 +35,24 @@ const ChatWindow = ({ chat }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [sending, setSending] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
 
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return messages
+    const query = searchQuery.toLowerCase()
+    return messages.filter((msg) => {
+      if (msg.text?.toLowerCase().includes(query)) return true
+      if (msg.senderName?.toLowerCase().includes(query)) return true
+      return false
+    })
+  }, [messages, searchQuery])
+
   const groupedMessages = useMemo(() => {
-    return messages.reduce((groups, message, index) => {
-      const prevMessage = index > 0 ? messages[index - 1] : null
+    return filteredMessages.reduce((groups, message, index) => {
+      const prevMessage = index > 0 ? filteredMessages[index - 1] : null
       const timeDiff = prevMessage && message.createdAt && prevMessage.createdAt
         ? (message.createdAt.toMillis?.() || new Date(message.createdAt).getTime()) -
           (prevMessage.createdAt.toMillis?.() || new Date(prevMessage.createdAt).getTime())
@@ -56,15 +71,20 @@ const ChatWindow = ({ chat }) => {
 
       return groups
     }, [])
-  }, [messages])
+  }, [filteredMessages])
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    if (messages.length > 0 && !searchQuery) {
+      const timer = setTimeout(() => {
+        scrollToBottom()
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [messages.length, scrollToBottom, searchQuery])
 
   useEffect(() => {
     const container = messagesContainerRef.current
@@ -81,18 +101,24 @@ const ChatWindow = ({ chat }) => {
   }, [])
 
   useEffect(() => {
-    if (chat.id && messages.length > 0) {
-      markAsRead()
+    if (chat.id && messages.length > 0 && !searchQuery) {
+      const timer = setTimeout(() => {
+        markAsRead()
+      }, 1000)
+      return () => clearTimeout(timer)
     }
-  }, [chat.id, messages.length])
+  }, [chat.id, messages.length, markAsRead, searchQuery])
 
   const handleSend = useCallback(async (text) => {
+    if (!text?.trim()) return
     setSending(true)
     try {
       const result = await sendMessage(text)
       if (result.success) {
         setTyping(false)
-        scrollToBottom()
+        setTimeout(() => scrollToBottom(), 100)
+      } else if (result.error) {
+        console.error('Error sending message:', result.error)
       }
     } catch (error) {
       console.error('Error sending message:', error)
@@ -102,11 +128,14 @@ const ChatWindow = ({ chat }) => {
   }, [sendMessage, setTyping, scrollToBottom])
 
   const handleSendImage = useCallback(async (imageURL, fileName) => {
+    if (!imageURL) return
     setSending(true)
     try {
       const result = await sendMessage(null, imageURL)
       if (result.success) {
-        scrollToBottom()
+        setTimeout(() => scrollToBottom(), 100)
+      } else if (result.error) {
+        console.error('Error sending image:', result.error)
       }
     } catch (error) {
       console.error('Error sending image:', error)
@@ -116,11 +145,14 @@ const ChatWindow = ({ chat }) => {
   }, [sendMessage, scrollToBottom])
 
   const handleSendFile = useCallback(async (fileURL, fileName, fileSize) => {
+    if (!fileURL) return
     setSending(true)
     try {
       const result = await sendMessage(null, null, fileURL, fileName, fileSize)
       if (result.success) {
-        scrollToBottom()
+        setTimeout(() => scrollToBottom(), 100)
+      } else if (result.error) {
+        console.error('Error sending file:', result.error)
       }
     } catch (error) {
       console.error('Error sending file:', error)
@@ -159,7 +191,7 @@ const ChatWindow = ({ chat }) => {
     }
   }, [setTyping])
 
-  const getStatusText = useMemo(() => {
+  const getStatusText = useCallback(() => {
     if (isOnline) {
       return 'Đang hoạt động'
     }
@@ -168,6 +200,12 @@ const ChatWindow = ({ chat }) => {
     }
     return 'Offline'
   }, [isOnline, lastSeen])
+
+  const handleScrollToTop = useCallback(() => {
+    if (hasMore && !loading) {
+      loadMoreMessages()
+    }
+  }, [hasMore, loading, loadMoreMessages])
 
   return (
     <Card className="h-full flex flex-col">
@@ -188,11 +226,18 @@ const ChatWindow = ({ chat }) => {
                 <p className="text-sm text-gray-500 truncate">
                   {typingUsers.length > 0
                     ? 'Đang soạn tin nhắn...'
-                    : getStatusText}
+                    : getStatusText()}
                 </p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+            title="Tìm kiếm tin nhắn"
+          >
+            <Search className="w-5 h-5" />
+          </button>
           <button className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors">
             <Phone className="w-5 h-5" />
           </button>
@@ -205,35 +250,91 @@ const ChatWindow = ({ chat }) => {
         </div>
       </div>
 
+      {showSearch && (
+        <div className="p-2 border-b border-gray-200 bg-white">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm kiếm tin nhắn..."
+              className="pl-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="text-xs text-gray-500 mt-1">
+              Tìm thấy {filteredMessages.length} tin nhắn
+            </p>
+          )}
+        </div>
+      )}
+
       <div
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-4 bg-gray-50 relative"
         style={{ scrollBehavior: 'smooth' }}
+        onScroll={(e) => {
+          const container = e.target
+          if (container.scrollTop === 0 && hasMore && !loading) {
+            const previousScrollHeight = container.scrollHeight
+            loadMoreMessages().then(() => {
+              setTimeout(() => {
+                container.scrollTop = container.scrollHeight - previousScrollHeight
+              }, 100)
+            })
+          }
+        }}
       >
-        {loading ? (
+        {loading && messages.length === 0 ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
           </div>
         ) : groupedMessages.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            <p className="mb-2">Chưa có tin nhắn nào</p>
-            <p className="text-sm">Hãy bắt đầu cuộc trò chuyện!</p>
+            <p className="mb-2">
+              {searchQuery ? 'Không tìm thấy tin nhắn nào' : 'Chưa có tin nhắn nào'}
+            </p>
+            <p className="text-sm">
+              {searchQuery ? 'Thử tìm kiếm với từ khóa khác' : 'Hãy bắt đầu cuộc trò chuyện!'}
+            </p>
           </div>
         ) : (
-          <div className="space-y-1">
-            {groupedMessages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isGrouped={message.isGrouped}
-                showAvatar={message.showAvatar}
-                onEdit={handleEdit}
-                onDelete={handleDeleteMessage}
-                onReact={handleReactMessage}
-              />
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
+          <>
+            {hasMore && (
+              <div className="text-center py-2">
+                <button
+                  onClick={handleScrollToTop}
+                  className="text-sm text-primary-600 hover:text-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={loading}
+                >
+                  {loading ? 'Đang tải...' : 'Tải thêm tin nhắn cũ'}
+                </button>
+              </div>
+            )}
+            <div className="space-y-1">
+              {groupedMessages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isGrouped={message.isGrouped}
+                  showAvatar={message.showAvatar}
+                  onEdit={handleEdit}
+                  onDelete={handleDeleteMessage}
+                  onReact={handleReactMessage}
+                  onRetry={message.status === 'failed' ? () => retryFailedMessage(message.id) : null}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          </>
         )}
         {showScrollButton && (
           <button

@@ -1,4 +1,7 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../config/firebase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import { Search, MessageCircle, Plus } from 'lucide-react'
@@ -7,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext'
 import ChatWindow from '../components/chat/ChatWindow'
 import NewChatModal from '../components/chat/NewChatModal'
 import ChatListItem from '../components/chat/ChatListItem'
+import { getOrCreateChat } from '../services/chatService'
 
 const ChatPage = () => {
   const { chats, loading } = useChats()
@@ -14,6 +18,42 @@ const ChatPage = () => {
   const [selectedChat, setSelectedChat] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showNewChatModal, setShowNewChatModal] = useState(false)
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    const userId = searchParams.get('userId')
+    if (userId && currentUser && userId !== currentUser.uid) {
+      const openChatWithUser = async () => {
+        try {
+          const result = await getOrCreateChat(currentUser.uid, userId)
+          if (result.success) {
+            const chat = chats.find((c) => c.id === result.chatId)
+            if (chat) {
+              setSelectedChat(chat)
+            } else {
+              // Nếu chat chưa có trong list, tạo chat mới
+              const userDoc = await getDoc(doc(db, 'users', userId))
+              if (userDoc.exists()) {
+                const userData = userDoc.data()
+                setSelectedChat({
+                  id: result.chatId,
+                  userId: userId,
+                  userName: userData.displayName,
+                  userPhotoURL: userData.photoURL,
+                  isOnline: userData.isOnline || false,
+                  lastMessage: '',
+                  unreadCount: 0,
+                })
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error opening chat:', error)
+        }
+      }
+      openChatWithUser()
+    }
+  }, [searchParams, currentUser, chats])
 
   const filteredChats = useMemo(() => {
     if (!searchQuery.trim()) return chats

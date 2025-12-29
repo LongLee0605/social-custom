@@ -5,21 +5,45 @@ import { useAuth } from '../contexts/AuthContext'
 import { uploadImage } from '../services/imageUpload'
 import { createNotification } from '../services/notificationService'
 
-export const usePosts = () => {
+export const usePosts = (filterByFollowing = false) => {
   const { currentUser, userProfile } = useAuth()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!currentUser && filterByFollowing) {
+      setLoading(false)
+      return
+    }
+
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
     
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
-        const postsData = snapshot.docs.map((doc) => ({
+      async (snapshot) => {
+        let postsData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }))
+
+        // Nếu filterByFollowing, chỉ hiển thị posts từ người đang follow + chính mình
+        if (filterByFollowing && currentUser) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', currentUser.uid))
+            if (userDoc.exists()) {
+              const userData = userDoc.data()
+              const followingList = userData.following || []
+              const allowedUserIds = [currentUser.uid, ...followingList]
+              
+              postsData = postsData.filter((post) => 
+                allowedUserIds.includes(post.userId)
+              )
+            }
+          } catch (error) {
+            console.error('Error fetching following list:', error)
+          }
+        }
+
         setPosts(postsData)
         setLoading(false)
       },
@@ -33,7 +57,7 @@ export const usePosts = () => {
     )
 
     return unsubscribe
-  }, [])
+  }, [currentUser, filterByFollowing])
 
   const createPost = async ({ content, image }) => {
     if (!currentUser) {
@@ -181,7 +205,7 @@ export const usePosts = () => {
           type: 'comment',
           title: 'Có người bình luận bài viết của bạn',
           message: 'đã bình luận bài viết của bạn',
-          link: `/`,
+          link: `/?postId=${postId}`,
           relatedUserId: currentUser.uid,
           relatedPostId: postId,
         }).catch(console.error)

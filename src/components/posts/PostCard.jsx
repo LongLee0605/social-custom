@@ -1,4 +1,4 @@
-import { useState, useEffect, memo, useCallback, useMemo } from 'react'
+import { useState, useEffect, memo, useCallback, useMemo, forwardRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { doc, deleteDoc } from 'firebase/firestore'
@@ -12,7 +12,7 @@ import { useUserInfo } from '../../hooks/useUserInfo'
 import { Heart, MessageCircle, Share2, MoreVertical, Trash2 } from 'lucide-react'
 import { formatRelativeTime } from '../../utils/formatDate'
 
-const PostCard = memo(({ post, onLike, onAddComment, onDeleteComment }) => {
+const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment }, ref) => {
   const { currentUser } = useAuth()
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -97,7 +97,7 @@ const PostCard = memo(({ post, onLike, onAddComment, onDeleteComment }) => {
 
 
   return (
-    <Card>
+    <Card ref={ref} id={`post-${post.id}`}>
       <div className="space-y-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
@@ -217,7 +217,7 @@ const PostCard = memo(({ post, onLike, onAddComment, onDeleteComment }) => {
       />
     </Card>
   )
-})
+}))
 
 PostCard.displayName = 'PostCard'
 

@@ -1,6 +1,9 @@
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { collection, getDocs, query, where, limit } from 'firebase/firestore'
+import { db } from '../../config/firebase'
 import { useAuth } from '../../contexts/AuthContext'
-import { Search, MessageCircle, LogOut, Settings } from 'lucide-react'
+import { Search, MessageCircle, LogOut, Settings, X } from 'lucide-react'
 import Button from '../ui/Button'
 import Avatar from '../ui/Avatar'
 import NotificationDropdown from '../notifications/NotificationDropdown'
@@ -12,12 +15,84 @@ const Header = () => {
   const { chats } = useChats()
   const navigate = useNavigate()
   const currentUserInfo = useUserInfo(currentUser?.uid)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchRef = useRef(null)
+  const searchResultsRef = useRef(null)
   
   const totalUnreadChats = chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        searchRef.current && 
+        !searchRef.current.contains(event.target) &&
+        searchResultsRef.current &&
+        !searchResultsRef.current.contains(event.target)
+      ) {
+        setShowSearchResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      setShowSearchResults(false)
+      return
+    }
+
+    const searchUsers = async () => {
+      setSearchLoading(true)
+      try {
+        const usersRef = collection(db, 'users')
+        const snapshot = await getDocs(usersRef)
+        const queryLower = searchQuery.toLowerCase()
+        
+        const results = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter(
+            (user) =>
+              user.uid &&
+              user.uid !== currentUser?.uid &&
+              (user.displayName?.toLowerCase().includes(queryLower) ||
+                user.email?.toLowerCase().includes(queryLower))
+          )
+          .slice(0, 5)
+
+        setSearchResults(results)
+        setShowSearchResults(true)
+      } catch (error) {
+        console.error('Error searching users:', error)
+      } finally {
+        setSearchLoading(false)
+      }
+    }
+
+    const timeoutId = setTimeout(searchUsers, 300)
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, currentUser?.uid])
 
   const handleLogout = async () => {
     await logout()
     navigate('/login')
+  }
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value)
+  }
+
+  const handleUserClick = () => {
+    setSearchQuery('')
+    setShowSearchResults(false)
   }
 
   return (
@@ -34,13 +109,69 @@ const Header = () => {
           </Link>
 
           <div className="flex-1 max-w-xl mx-4 hidden md:block">
-            <div className="relative">
+            <div className="relative" ref={searchRef}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Tìm kiếm..."
+                placeholder="Tìm kiếm người dùng..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onFocus={() => searchQuery && setShowSearchResults(true)}
                 className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('')
+                    setShowSearchResults(false)
+                  }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              
+              {showSearchResults && (
+                <div
+                  ref={searchResultsRef}
+                  className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 max-h-96 overflow-y-auto z-50"
+                >
+                  {searchLoading ? (
+                    <div className="p-4 text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mx-auto"></div>
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      Không tìm thấy người dùng
+                    </div>
+                  ) : (
+                    <div className="py-2">
+                      {searchResults.map((user) => (
+                        <Link
+                          key={user.id}
+                          to={`/profile/${user.uid}`}
+                          onClick={handleUserClick}
+                          className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                        >
+                          <Avatar
+                            src={user.photoURL}
+                            alt={user.displayName}
+                            size="md"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">
+                              {user.displayName || 'Người dùng'}
+                            </p>
+                            {user.email && (
+                              <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

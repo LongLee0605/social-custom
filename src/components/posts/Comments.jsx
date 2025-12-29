@@ -1,4 +1,5 @@
 import { useState, memo, useCallback, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
@@ -35,17 +36,23 @@ const CommentItem = memo(({ comment, currentUser, onDelete }) => {
 
   return (
     <div className="flex items-start space-x-3 group">
-      <Avatar
-        src={userInfo?.photoURL || null}
-        alt={userInfo?.displayName || comment.userName}
-        size="sm"
-      />
+      <Link to={`/profile/${comment.userId}`}>
+        <Avatar
+          src={userInfo?.photoURL || null}
+          alt={userInfo?.displayName || comment.userName}
+          size="sm"
+          className="hover:opacity-80 transition-opacity"
+        />
+      </Link>
       <div className="flex-1">
         <div className="bg-gray-100 rounded-lg px-3 py-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-semibold text-sm text-gray-900">
+            <Link
+              to={`/profile/${comment.userId}`}
+              className="font-semibold text-sm text-gray-900 hover:text-primary-600 transition-colors"
+            >
               {userInfo?.displayName || comment.userName}
-            </span>
+            </Link>
             {comment.userId === currentUser?.uid && (
               <button
                 onClick={handleDelete}

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Card from '../components/ui/Card'
@@ -6,6 +7,7 @@ import Button from '../components/ui/Button'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { usePosts } from '../hooks/usePosts'
 import PostCard from '../components/posts/PostCard'
+import FollowersModal from '../components/profile/FollowersModal'
 import { MessageCircle, Settings } from 'lucide-react'
 
 const ProfilePage = () => {
@@ -17,6 +19,8 @@ const ProfilePage = () => {
   )
   const { likePost, addComment, deleteComment } = usePosts()
   const isOwnProfile = !userId || userId === currentUser?.uid
+  const [showFollowersModal, setShowFollowersModal] = useState(false)
+  const [showFollowingModal, setShowFollowingModal] = useState(false)
 
   if (loading) {
     return (
@@ -55,14 +59,20 @@ const ProfilePage = () => {
                 <span className="font-semibold">{posts?.length || 0}</span>
                 <span className="text-gray-600 ml-1">bài viết</span>
               </div>
-              <div>
+              <button
+                onClick={() => setShowFollowersModal(true)}
+                className="hover:opacity-80 transition-opacity"
+              >
                 <span className="font-semibold">{userProfile.followers?.length || 0}</span>
                 <span className="text-gray-600 ml-1">người theo dõi</span>
-              </div>
-              <div>
+              </button>
+              <button
+                onClick={() => setShowFollowingModal(true)}
+                className="hover:opacity-80 transition-opacity"
+              >
                 <span className="font-semibold">{userProfile.following?.length || 0}</span>
                 <span className="text-gray-600 ml-1">đang theo dõi</span>
-              </div>
+              </button>
             </div>
             {!isOwnProfile && (
               <div className="flex space-x-3">
@@ -72,7 +82,10 @@ const ProfilePage = () => {
                 >
                   {isFollowing ? 'Đã theo dõi' : 'Theo dõi'}
                 </Button>
-                <Button variant="outline">
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate(`/chat?userId=${userId}`)}
+                >
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Nhắn tin
                 </Button>
@@ -131,6 +144,20 @@ const ProfilePage = () => {
           </div>
         )}
       </div>
+
+      <FollowersModal
+        isOpen={showFollowersModal}
+        onClose={() => setShowFollowersModal(false)}
+        userIds={userProfile.followers || []}
+        title="Người theo dõi"
+      />
+
+      <FollowersModal
+        isOpen={showFollowingModal}
+        onClose={() => setShowFollowingModal(false)}
+        userIds={userProfile.following || []}
+        title="Đang theo dõi"
+      />
     </div>
   )
 }

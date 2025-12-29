@@ -28,6 +28,7 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
   const [selectedImage, setSelectedImage] = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [alert, setAlert] = useState({ isOpen: false, type: 'error', title: '', message: '' })
+  const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
   const imageInputRef = useRef(null)
   const textareaRef = useRef(null)
@@ -43,24 +44,49 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
   const handleSend = async (e) => {
     e.preventDefault()
     if (!messageText.trim() && !selectedImage && !selectedFile) return
+    if (disabled) return
 
-    if (selectedImage) {
-      await handleSendImage()
-    } else if (selectedFile) {
-      await handleSendFile()
-    } else if (messageText.trim()) {
-      onSend(messageText.trim())
-      setMessageText('')
+    try {
+      if (selectedImage) {
+        await handleSendImage()
+      } else if (selectedFile) {
+        await handleSendFile()
+      } else if (messageText.trim()) {
+        const textToSend = messageText.trim()
+        setMessageText('')
+        await onSend(textToSend)
+      }
+    } catch (error) {
+      console.error('Error in handleSend:', error)
+      setAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Có lỗi xảy ra khi gửi tin nhắn. Vui lòng thử lại.',
+      })
     }
   }
 
   const handleSendImage = async () => {
-    if (!selectedImage) return
+    if (!selectedImage || disabled || uploading) return
 
     try {
-      const imagePath = `chat-images/${Date.now()}_${selectedImage.name}`
+      setUploading(true)
+      const maxSize = 10 * 1024 * 1024
+      if (selectedImage.size > maxSize) {
+        setAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Lỗi',
+          message: 'Kích thước ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 10MB',
+        })
+        setUploading(false)
+        return
+      }
+
+      const imagePath = `chat-images/${Date.now()}_${selectedImage.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
       const imageURL = await uploadImage(selectedImage, imagePath)
-      onSendImage(imageURL, selectedImage.name)
+      await onSendImage(imageURL, selectedImage.name)
       setSelectedImage(null)
       setImagePreview(null)
     } catch (error) {
@@ -71,16 +97,31 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
         title: 'Lỗi upload ảnh',
         message: error.message || 'Lỗi khi upload ảnh. Vui lòng thử lại.',
       })
+    } finally {
+      setUploading(false)
     }
   }
 
   const handleSendFile = async () => {
-    if (!selectedFile) return
+    if (!selectedFile || disabled || uploading) return
 
     try {
-      const filePath = `chat-files/${Date.now()}_${selectedFile.name}`
+      setUploading(true)
+      const maxSize = 50 * 1024 * 1024
+      if (selectedFile.size > maxSize) {
+        setAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'Lỗi',
+          message: 'Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 50MB',
+        })
+        setUploading(false)
+        return
+      }
+
+      const filePath = `chat-files/${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
       const fileURL = await uploadFile(selectedFile, filePath)
-      onSendFile(fileURL, selectedFile.name, selectedFile.size)
+      await onSendFile(fileURL, selectedFile.name, selectedFile.size)
       setSelectedFile(null)
     } catch (error) {
       console.error('Error uploading file:', error)
@@ -90,26 +131,66 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
         title: 'Lỗi upload file',
         message: error.message || 'Lỗi khi upload file. Vui lòng thử lại.',
       })
+    } finally {
+      setUploading(false)
     }
   }
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0]
-    if (file) {
-      setSelectedImage(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImagePreview(reader.result)
-      }
-      reader.readAsDataURL(file)
+    if (!file) return
+
+    const maxSize = 10 * 1024 * 1024
+    if (file.size > maxSize) {
+      setAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Kích thước ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 10MB',
+      })
+      e.target.value = ''
+      return
     }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Định dạng ảnh không được hỗ trợ. Vui lòng chọn ảnh JPG, PNG, GIF hoặc WebP',
+      })
+      e.target.value = ''
+      return
+    }
+
+    setSelectedImage(file)
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setImagePreview(reader.result)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
   }
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0]
-    if (file) {
-      setSelectedFile(file)
+    if (!file) return
+
+    const maxSize = 50 * 1024 * 1024
+    if (file.size > maxSize) {
+      setAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 50MB',
+      })
+      e.target.value = ''
+      return
     }
+
+    setSelectedFile(file)
+    e.target.value = ''
   }
 
   const insertEmoji = (emoji) => {
@@ -228,9 +309,10 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
               ref={textareaRef}
               value={messageText}
               onChange={(e) => {
-                setMessageText(e.target.value)
+                const value = e.target.value
+                setMessageText(value)
                 if (onTyping) {
-                  onTyping(e.target.value)
+                  onTyping(value)
                 }
               }}
               onKeyDown={(e) => {
@@ -249,10 +331,14 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
           <Button
             type="submit"
             variant="primary"
-            disabled={(!messageText.trim() && !selectedImage && !selectedFile) || disabled}
+            disabled={(!messageText.trim() && !selectedImage && !selectedFile) || disabled || uploading}
             className="rounded-full p-2"
           >
-            <Send className="w-5 h-5" />
+            {uploading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </Button>
         </div>
       </form>

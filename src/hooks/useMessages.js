@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   collection,
   query,
   orderBy,
+  limit,
+  startAfter,
   onSnapshot,
   addDoc,
   serverTimestamp,
@@ -10,6 +12,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from '../contexts/AuthContext'
@@ -18,30 +21,39 @@ export const useMessages = (chatId) => {
   const { currentUser, userProfile } = useAuth()
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(false)
+  const [lastMessageDoc, setLastMessageDoc] = useState(null)
+  const [sendingMessages, setSendingMessages] = useState(new Map())
 
   useEffect(() => {
     if (!chatId) {
       setLoading(false)
+      setMessages([])
       return
     }
 
-    const q = query(
-      collection(db, 'chats', chatId, 'messages'),
-      orderBy('createdAt', 'asc')
-    )
+    const messagesRef = collection(db, 'chats', chatId, 'messages')
+    const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(50))
 
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
+        if (snapshot.empty) {
+          setMessages([])
+          setHasMore(false)
+          setLoading(false)
+          return
+        }
+
         const messagesData = await Promise.all(
-          snapshot.docs.map(async (doc) => {
-            const data = doc.data()
+          snapshot.docs.map(async (docSnap) => {
+            const data = docSnap.data()
             if (data.senderId && !data.senderName) {
               try {
                 const userDoc = await getDoc(doc(db, 'users', data.senderId))
                 if (userDoc.exists()) {
                   return {
-                    id: doc.id,
+                    id: docSnap.id,
                     ...data,
                     senderName: userDoc.data().displayName,
                     senderPhotoURL: userDoc.data().photoURL,
@@ -52,12 +64,16 @@ export const useMessages = (chatId) => {
               }
             }
             return {
-              id: doc.id,
+              id: docSnap.id,
               ...data,
             }
           })
         )
-        setMessages(messagesData)
+
+        const sortedMessages = messagesData.reverse()
+        setMessages(sortedMessages)
+        setLastMessageDoc(snapshot.docs[snapshot.docs.length - 1])
+        setHasMore(snapshot.docs.length === 50)
         setLoading(false)
       },
       (error) => {
@@ -72,11 +88,89 @@ export const useMessages = (chatId) => {
     return unsubscribe
   }, [chatId])
 
-  const sendMessage = async (text, imageURL = null, fileURL = null, fileName = null, fileSize = null) => {
-    if (!chatId || !currentUser) return { success: false, error: 'Missing chatId or user' }
+  const loadMoreMessages = useCallback(async () => {
+    if (!chatId || !lastMessageDoc || !hasMore) return
 
     try {
-      // Add message to subcollection
+      const messagesRef = collection(db, 'chats', chatId, 'messages')
+      const q = query(
+        messagesRef,
+        orderBy('createdAt', 'desc'),
+        startAfter(lastMessageDoc),
+        limit(50)
+      )
+
+      const snapshot = await getDocs(q)
+      if (snapshot.empty) {
+        setHasMore(false)
+        return
+      }
+
+      const newMessages = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data()
+          if (data.senderId && !data.senderName) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', data.senderId))
+              if (userDoc.exists()) {
+                return {
+                  id: docSnap.id,
+                  ...data,
+                  senderName: userDoc.data().displayName,
+                  senderPhotoURL: userDoc.data().photoURL,
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching sender info:', error)
+            }
+          }
+          return {
+            id: docSnap.id,
+            ...data,
+          }
+        })
+      )
+
+      setMessages((prev) => [...newMessages.reverse(), ...prev])
+      setLastMessageDoc(snapshot.docs[snapshot.docs.length - 1])
+      setHasMore(snapshot.docs.length === 50)
+    } catch (error) {
+      console.error('Error loading more messages:', error)
+    }
+  }, [chatId, lastMessageDoc, hasMore])
+
+  const sendMessage = async (text, imageURL = null, fileURL = null, fileName = null, fileSize = null, retryCount = 0) => {
+    if (!chatId || !currentUser) return { success: false, error: 'Missing chatId or user' }
+
+    const tempId = `temp_${Date.now()}_${Math.random()}`
+    const optimisticMessage = {
+      id: tempId,
+      senderId: currentUser.uid,
+      senderName: userProfile?.displayName || currentUser.displayName,
+      senderPhotoURL: userProfile?.photoURL || currentUser.photoURL,
+      createdAt: new Date(),
+      read: false,
+      sent: false,
+      status: 'sending',
+      reactions: {},
+    }
+
+    if (text) optimisticMessage.text = text.trim()
+    if (imageURL) {
+      optimisticMessage.imageURL = imageURL
+      optimisticMessage.type = 'image'
+    }
+    if (fileURL) {
+      optimisticMessage.fileURL = fileURL
+      optimisticMessage.fileName = fileName
+      optimisticMessage.fileSize = fileSize
+      optimisticMessage.type = 'file'
+    }
+
+    setSendingMessages((prev) => new Map(prev).set(tempId, optimisticMessage))
+    setMessages((prev) => [...prev, optimisticMessage])
+
+    try {
       const messageData = {
         senderId: currentUser.uid,
         senderName: userProfile?.displayName || currentUser.displayName,
@@ -84,6 +178,7 @@ export const useMessages = (chatId) => {
         createdAt: serverTimestamp(),
         read: false,
         sent: true,
+        status: 'sent',
         reactions: {},
       }
 
@@ -99,7 +194,15 @@ export const useMessages = (chatId) => {
         messageData.type = 'file'
       }
 
-      await addDoc(collection(db, 'chats', chatId, 'messages'), messageData)
+      const docRef = await addDoc(collection(db, 'chats', chatId, 'messages'), messageData)
+
+      setSendingMessages((prev) => {
+        const newMap = new Map(prev)
+        newMap.delete(tempId)
+        return newMap
+      })
+
+      setMessages((prev) => prev.filter((msg) => msg.id !== tempId))
 
       const lastMessage = text || (imageURL ? '📷 Đã gửi một ảnh' : fileName || '📎 Đã gửi một file')
       
@@ -115,10 +218,31 @@ export const useMessages = (chatId) => {
         }),
       })
 
-      return { success: true }
+      return { success: true, messageId: docRef.id }
     } catch (error) {
       console.error('Error sending message:', error)
-      return { success: false, error: error.message }
+      
+      setSendingMessages((prev) => {
+        const newMap = new Map(prev)
+        const msg = newMap.get(tempId)
+        if (msg) {
+          msg.status = 'failed'
+          newMap.set(tempId, msg)
+        }
+        return newMap
+      })
+
+      setMessages((prev) => prev.map((msg) => 
+        msg.id === tempId ? { ...msg, status: 'failed' } : msg
+      ))
+
+      if (retryCount < 3) {
+        setTimeout(() => {
+          sendMessage(text, imageURL, fileURL, fileName, fileSize, retryCount + 1)
+        }, 2000 * (retryCount + 1))
+      }
+
+      return { success: false, error: error.message, tempId }
     }
   }
 
@@ -194,41 +318,79 @@ export const useMessages = (chatId) => {
     }
   }
 
-  const markAsRead = async () => {
+  const markAsRead = useCallback(async () => {
     if (!chatId || !currentUser) return
 
     try {
-      const messagesToUpdate = messages
-        .filter((msg) => msg.senderId !== currentUser.uid && !msg.read)
-        .map((msg) => msg.id)
+      const unreadMessages = messages.filter(
+        (msg) => msg.senderId !== currentUser.uid && !msg.read && !msg.id?.startsWith('temp_')
+      )
 
-      if (messagesToUpdate.length > 0) {
-        const batch = messagesToUpdate.map((messageId) =>
-          updateDoc(doc(db, 'chats', chatId, 'messages', messageId), {
-            read: true,
-            readAt: serverTimestamp(),
-          })
+      if (unreadMessages.length === 0) return
+
+      const batchSize = 10
+      for (let i = 0; i < unreadMessages.length; i += batchSize) {
+        const batch = unreadMessages.slice(i, i + batchSize)
+        await Promise.all(
+          batch.map((msg) =>
+            updateDoc(doc(db, 'chats', chatId, 'messages', msg.id), {
+              read: true,
+              readAt: serverTimestamp(),
+            }).catch((error) => {
+              console.error(`Error marking message ${msg.id} as read:`, error)
+            })
+          )
         )
-
-        await Promise.all(batch)
-
-        await updateDoc(doc(db, 'chats', chatId), {
-          [`unreadCount.${currentUser.uid}`]: 0,
-        })
       }
+
+      await updateDoc(doc(db, 'chats', chatId), {
+        [`unreadCount.${currentUser.uid}`]: 0,
+      }).catch((error) => {
+        console.error('Error updating unread count:', error)
+      })
     } catch (error) {
       console.error('Error marking messages as read:', error)
     }
-  }
+  }, [chatId, currentUser, messages])
+
+  const retryFailedMessage = useCallback(async (tempId) => {
+    const failedMessage = sendingMessages.get(tempId)
+    if (!failedMessage || !chatId || !currentUser) return
+
+    setSendingMessages((prev) => {
+      const newMap = new Map(prev)
+      const msg = newMap.get(tempId)
+      if (msg) {
+        msg.status = 'sending'
+        newMap.set(tempId, msg)
+      }
+      return newMap
+    })
+
+    setMessages((prev) => prev.map((msg) => 
+      msg.id === tempId ? { ...msg, status: 'sending' } : msg
+    ))
+
+    await sendMessage(
+      failedMessage.text,
+      failedMessage.imageURL,
+      failedMessage.fileURL,
+      failedMessage.fileName,
+      failedMessage.fileSize
+    )
+  }, [sendingMessages, chatId, currentUser, sendMessage])
 
   return {
     messages,
     loading,
+    hasMore,
+    loadMoreMessages,
     sendMessage,
     editMessage,
     deleteMessage,
     reactToMessage,
     markAsRead,
+    retryFailedMessage,
   }
 }
 

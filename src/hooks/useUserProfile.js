@@ -3,6 +3,7 @@ import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firest
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { createNotification } from '../services/notificationService'
 
 export const useUserProfile = (userId) => {
   const { currentUser } = useAuth()
@@ -116,6 +117,18 @@ export const useUserProfile = (userId) => {
       })
 
       setIsFollowing(true)
+
+      // Tạo notification cho người được follow
+      if (userId !== currentUser.uid) {
+        createNotification({
+          userId: userId,
+          type: 'follow',
+          title: 'Có người theo dõi bạn',
+          message: 'đã theo dõi bạn',
+          link: `/profile/${currentUser.uid}`,
+          relatedUserId: currentUser.uid,
+        }).catch(console.error)
+      }
     } catch (error) {
       console.error('Error following user:', error)
     }

@@ -27,6 +27,19 @@ const NotificationItem = memo(({ notification, onClick }) => {
     }
   }, [])
 
+  const getNotificationMessage = useCallback((type, displayName) => {
+    switch (type) {
+      case 'like':
+        return `${displayName} đã thích bài viết của bạn`
+      case 'comment':
+        return `${displayName} đã bình luận bài viết của bạn`
+      case 'follow':
+        return `${displayName} đã theo dõi bạn`
+      default:
+        return notification.message || 'Bạn có thông báo mới'
+    }
+  }, [notification.message, notification.type])
+
   const displayName = useMemo(() => userInfo?.displayName || notification.relatedUserName || 'Ai đó', [userInfo?.displayName, notification.relatedUserName])
   const photoURL = useMemo(() => userInfo?.photoURL || null, [userInfo?.photoURL])
 
