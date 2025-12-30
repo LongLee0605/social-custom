@@ -36,8 +36,20 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
 
   useEffect(() => {
     if (textareaRef.current) {
+      // Reset height để tính toán chính xác scrollHeight
       textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+      
+      // Lấy scrollHeight (chiều cao thực tế của nội dung)
+      const scrollHeight = textareaRef.current.scrollHeight
+      const minHeight = 36 // Chiều cao tối thiểu (tương đương 1 dòng)
+      const maxHeight = 120 // Chiều cao tối đa (tương đương ~5-6 dòng)
+      
+      // Đặt chiều cao dựa trên nội dung, nhưng không vượt quá maxHeight
+      const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight))
+      textareaRef.current.style.height = `${newHeight}px`
+      
+      // Luôn ẩn scroll
+      textareaRef.current.style.overflowY = 'hidden'
     }
   }, [messageText])
 
@@ -262,7 +274,7 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
       )}
 
       {showEmojiPicker && (
-        <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 max-h-48 overflow-y-auto overflow-x-hidden scrollbar-hide">
+        <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 max-h-48 overflow-y-auto overflow-x-hidden scrollbar-thin">
           <div className="grid grid-cols-6 sm:grid-cols-8 gap-1 sm:gap-2 max-w-full">
             {EMOJI_LIST.map((emoji) => (
               <button
@@ -341,7 +353,12 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
               }}
               placeholder="Nhập tin nhắn..."
               rows={1}
-              className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none max-h-20 sm:max-h-24 overflow-y-auto scrollbar-hide"
+              className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none overflow-hidden"
+              style={{ 
+                minHeight: '36px',
+                maxHeight: '120px',
+                height: 'auto'
+              }}
               disabled={disabled}
             />
           </div>

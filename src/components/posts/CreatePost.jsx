@@ -94,7 +94,7 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
               onChange={(e) => setContent(e.target.value)}
               placeholder="Bạn đang nghĩ gì?"
               rows={4}
-              className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none scrollbar-hide"
+              className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none overflow-hidden"
             />
             {imagePreview && (
               <div className="mt-3 sm:mt-4 relative">

@@ -7,7 +7,7 @@ const Card = forwardRef(({ children, className = '', padding = true, ...props },
       ref={ref}
       className={clsx(
         'bg-white rounded-lg shadow-sm',
-        padding && 'p-6',
+        padding && 'lg:p-6 p-4',
         className
       )}
       {...props}

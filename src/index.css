@@ -29,6 +29,21 @@
   animation: slide-in 0.3s ease-out;
 }
 
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;
@@ -37,6 +52,85 @@
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Modern Custom Scrollbar */
+  .scrollbar-modern {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background 0.2s ease;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.7);
+    background-clip: padding-box;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb:active {
+    background: rgba(0, 0, 0, 0.8);
+    background-clip: padding-box;
+  }
+
+  /* Thin Modern Scrollbar for Chat */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(192, 192, 192, 0.4) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.4);
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+    transition: all 0.2s ease;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.6);
+    background-clip: padding-box;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:active {
+    background: rgba(99, 102, 241, 0.8);
+    background-clip: padding-box;
+  }
+
+  /* Mobile zoom cho chat window */
+  .mobile-zoom {
+    zoom: 0.8;
+  }
+
+  @media (min-width: 1024px) {
+    .mobile-zoom {
+      zoom: 1;
+    }
   }
 }
 

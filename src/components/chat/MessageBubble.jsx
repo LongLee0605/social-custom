@@ -54,23 +54,25 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, hasTimeGap, showTi
 
   return (
     <div
-      className={`flex space-x-2 group ${isOwn ? 'flex-row-reverse space-x-reverse' : ''} ${
+      className={`flex group ${isOwn ? 'flex-row-reverse' : 'space-x-2'} ${
         hasTimeGap ? 'mt-6' : isGrouped && !hasReactions ? 'mt-0' : isGrouped ? 'mt-1' : 'mt-4'
       }`}
     >
-      <div className="flex-shrink-0 w-8">
-        {(!isGrouped || showAvatar) && !isOwn && (
-          <div className="pt-[22px]">
-            <Avatar
-              src={senderInfo?.photoURL || null}
-              alt={senderInfo?.displayName || message.senderName}
-              size="sm"
-            />
-          </div>
-        )}
-      </div>
+      {!isOwn && (
+        <div className="flex-shrink-0 w-8">
+          {(!isGrouped || showAvatar) && (
+            <div className="pt-[22px]">
+              <Avatar
+                src={senderInfo?.photoURL || null}
+                alt={senderInfo?.displayName || message.senderName}
+                size="sm"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[75%] lg:max-w-[60%]`}>
+      <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${isOwn ? 'max-w-[90%] sm:max-w-[85%] lg:max-w-[70%]' : 'max-w-[85%] sm:max-w-[75%] lg:max-w-[60%]'}`}>
         {!isGrouped && !isOwn && (
           <span className="text-xs text-gray-500 mb-1 px-1">{senderInfo?.displayName || message.senderName}</span>
         )}
@@ -142,7 +144,7 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, hasTimeGap, showTi
             )}
 
             {isOwn && (
-              <div className="absolute -right-8 top-0 opacity-0 group-hover/message:opacity-100 transition-opacity">
+              <div className="absolute -right-6 sm:-right-8 top-0 opacity-0 group-hover/message:opacity-100 transition-opacity">
                 <div className="relative">
                   <button
                     onClick={handleMenuToggle}
@@ -204,7 +206,7 @@ const MessageBubble = memo(({ message, isGrouped, showAvatar, hasTimeGap, showTi
           )}
 
           {hasTimeGap && (
-            <div className="flex items-center justify-center mt-2 mb-1 w-full">
+            <div className={`flex items-center mt-2 mb-1 w-full ${isOwn ? 'justify-end' : 'justify-start'}`}>
               <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-full">
                 {formatMessageTime(message.createdAt)}
               </span>

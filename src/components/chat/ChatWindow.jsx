@@ -16,7 +16,7 @@ import Input from '../ui/Input'
 
 const ChatWindow = ({ chat }) => {
   const { currentUser } = useAuth()
-  
+
   // Validate chat object
   if (!chat || !chat.id) {
     return (
@@ -27,7 +27,7 @@ const ChatWindow = ({ chat }) => {
       </Card>
     )
   }
-  
+
   const {
     messages,
     loading,
@@ -52,6 +52,9 @@ const ChatWindow = ({ chat }) => {
   const [showSearch, setShowSearch] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
+  const scrollTimeoutRef = useRef(null)
+  const lastScrollTopRef = useRef(0)
+  const isScrollingDownRef = useRef(false)
 
   const filteredMessages = useMemo(() => {
     if (!searchQuery.trim()) return messages
@@ -67,15 +70,15 @@ const ChatWindow = ({ chat }) => {
     return filteredMessages.reduce((groups, message, index) => {
       const prevMessage = index > 0 ? filteredMessages[index - 1] : null
       const nextMessage = index < filteredMessages.length - 1 ? filteredMessages[index + 1] : null
-      
+
       const timeDiff = prevMessage && message.createdAt && prevMessage.createdAt
         ? (message.createdAt.toMillis?.() || new Date(message.createdAt).getTime()) -
-          (prevMessage.createdAt.toMillis?.() || new Date(prevMessage.createdAt).getTime())
+        (prevMessage.createdAt.toMillis?.() || new Date(prevMessage.createdAt).getTime())
         : Infinity
 
       const nextTimeDiff = nextMessage && message.createdAt && nextMessage.createdAt
         ? (nextMessage.createdAt.toMillis?.() || new Date(nextMessage.createdAt).getTime()) -
-          (message.createdAt.toMillis?.() || new Date(message.createdAt).getTime())
+        (message.createdAt.toMillis?.() || new Date(message.createdAt).getTime())
         : Infinity
 
       const isGrouped =
@@ -100,6 +103,10 @@ const ChatWindow = ({ chat }) => {
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Ẩn button khi đang scroll to bottom
+    setShowScrollButton(false)
+    // Reset scroll direction
+    isScrollingDownRef.current = false
   }, [])
 
   useEffect(() => {
@@ -117,13 +124,47 @@ const ChatWindow = ({ chat }) => {
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 200
-      setShowScrollButton(!isNearBottom)
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+      const isNearBottom = distanceFromBottom < 150
+      
+      // Xác định hướng scroll
+      const currentScrollTop = scrollTop
+      const isScrollingDown = currentScrollTop > lastScrollTopRef.current
+      isScrollingDownRef.current = isScrollingDown
+      lastScrollTopRef.current = currentScrollTop
+
+      // Ẩn button nếu:
+      // 1. Đang ở gần bottom
+      // 2. Đang search
+      // 3. Đang scroll down (chỉ hiện khi scroll up)
+      // 4. Không có đủ tin nhắn để scroll
+      const shouldShow = !isNearBottom && 
+                        !searchQuery && 
+                        !isScrollingDown && 
+                        scrollHeight > clientHeight &&
+                        distanceFromBottom > 50
+
+      // Debounce để tránh re-render nhiều
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+
+      scrollTimeoutRef.current = setTimeout(() => {
+        setShowScrollButton(shouldShow)
+      }, 150)
     }
 
-    container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
-  }, [])
+    // Kiểm tra ban đầu
+    handleScroll()
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [searchQuery])
 
   useEffect(() => {
     if (chat.id && messages.length > 0 && !searchQuery) {
@@ -233,40 +274,40 @@ const ChatWindow = ({ chat }) => {
   }, [hasMore, loading, loadMoreMessages])
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden">
-          <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-white">
-            <Link
-              to={`/profile/${chat.userId}`}
-              className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer"
-            >
-              <div className="relative flex-shrink-0">
-                <Avatar
-                  src={userInfo?.photoURL || null}
-                  alt={userInfo?.displayName || chat.userName}
-                  size="sm"
-                  className="sm:hidden"
-                />
-                <Avatar
-                  src={userInfo?.photoURL || null}
-                  alt={userInfo?.displayName || chat.userName}
-                  size="md"
-                  className="hidden sm:block"
-                />
-                {isOnline && (
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full"></span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate hover:text-primary-600 transition-colors">
-                  {userInfo?.displayName || chat.userName}
-                </h3>
-                <p className="text-xs sm:text-sm text-gray-500 truncate">
-                  {typingUsers.length > 0
-                    ? 'Đang soạn tin nhắn...'
-                    : getStatusText()}
-                </p>
-              </div>
-            </Link>
+    <Card className="lg:h-full h-[calc(100vh-80px)] flex flex-col overflow-hidden">
+      <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-white">
+        <Link
+          to={`/profile/${chat.userId}`}
+          className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer"
+        >
+          <div className="relative flex-shrink-0">
+            <Avatar
+              src={userInfo?.photoURL || null}
+              alt={userInfo?.displayName || chat.userName}
+              size="sm"
+              className="sm:hidden"
+            />
+            <Avatar
+              src={userInfo?.photoURL || null}
+              alt={userInfo?.displayName || chat.userName}
+              size="md"
+              className="hidden sm:block"
+            />
+            {isOnline && (
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full"></span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate hover:text-primary-600 transition-colors">
+              {userInfo?.displayName || chat.userName}
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-500 truncate">
+              {typingUsers.length > 0
+                ? 'Đang soạn tin nhắn...'
+                : getStatusText()}
+            </p>
+          </div>
+        </Link>
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           <button
             onClick={() => setShowSearch(!showSearch)}
@@ -275,19 +316,19 @@ const ChatWindow = ({ chat }) => {
           >
             <Search className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <button 
+          <button
             className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
             title="Gọi điện"
           >
             <Phone className="w-5 h-5" />
           </button>
-          <button 
+          <button
             className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
             title="Gọi video"
           >
             <Video className="w-5 h-5" />
           </button>
-          <button 
+          <button
             className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
             title="Thêm"
           >
@@ -325,7 +366,7 @@ const ChatWindow = ({ chat }) => {
 
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-4 bg-gray-50 relative scrollbar-hide"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-4 bg-gray-50 relative scrollbar-thin"
         style={{ scrollBehavior: 'smooth' }}
         onScroll={(e) => {
           const container = e.target
@@ -385,12 +426,15 @@ const ChatWindow = ({ chat }) => {
           </>
         )}
         {showScrollButton && (
-          <button
-            onClick={scrollToBottom}
-            className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 bg-primary-600 text-white rounded-full p-2 sm:p-3 shadow-lg hover:bg-primary-700 transition-colors z-10"
-          >
-            <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+          <div className='flex w-full items-center justify-center absolute bottom-4 left-0 right-0 z-10 animate-fade-in'>
+            <button
+              onClick={scrollToBottom}
+              className="bg-primary-600 text-white rounded-full p-2 sm:p-3 shadow-lg hover:bg-primary-700 transition-all duration-200 hover:scale-110 active:scale-95"
+              aria-label="Cuộn xuống dưới"
+            >
+              <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          </div>
         )}
       </div>
 

@@ -26,14 +26,14 @@ const ChatPage = () => {
 
   useEffect(() => {
     const userId = searchParams.get('userId')
-    
+
     if (userId && currentUser?.uid && userId !== currentUser.uid && !hasOpenedChatRef.current && !openingChatRef.current) {
       const openChatWithUser = async () => {
         try {
           openingChatRef.current = true
           hasOpenedChatRef.current = true
           const result = await getOrCreateChat(currentUser.uid, userId)
-          
+
           if (result.success) {
             setTimeout(() => {
               const chat = chats.find((c) => c.id === result.chatId)
@@ -89,13 +89,13 @@ const ChatPage = () => {
 
     const updatedChat = chats.find((c) => c.id === selectedChat.id)
     if (updatedChat) {
-      const hasChanges = 
+      const hasChanges =
         updatedChat.lastMessage !== selectedChat.lastMessage ||
         updatedChat.unreadCount !== selectedChat.unreadCount ||
         updatedChat.isOnline !== selectedChat.isOnline ||
         updatedChat.userName !== selectedChat.userName ||
         updatedChat.userPhotoURL !== selectedChat.userPhotoURL
-      
+
       if (hasChanges) {
         setSelectedChat(prev => {
           if (prev?.id === updatedChat.id && !isManualSelectionRef.current) {
@@ -123,7 +123,7 @@ const ChatPage = () => {
 
   const handleChatSelected = useCallback((chatId, user) => {
     isManualSelectionRef.current = true
-    
+
     setSelectedChat({
       id: chatId,
       userId: user.uid,
@@ -133,9 +133,9 @@ const ChatPage = () => {
       lastMessage: '',
       unreadCount: 0,
     })
-    
+
     setSearchParams({})
-    
+
     setTimeout(() => {
       isManualSelectionRef.current = false
     }, 500)
@@ -143,9 +143,9 @@ const ChatPage = () => {
 
   const handleSelectChat = useCallback((chat) => {
     if (!chat?.id) return
-    
+
     isManualSelectionRef.current = true
-    
+
     setSelectedChat({
       id: chat.id,
       userId: chat.userId,
@@ -156,11 +156,11 @@ const ChatPage = () => {
       unreadCount: chat.unreadCount || 0,
       updatedAt: chat.updatedAt,
     })
-    
+
     if (searchParams.get('userId')) {
       setSearchParams({})
     }
-    
+
     setTimeout(() => {
       isManualSelectionRef.current = false
     }, 3000)
@@ -168,7 +168,7 @@ const ChatPage = () => {
 
   return (
     <div className="max-w-7xl mx-auto w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 h-[calc(100vh-8rem)] sm:h-[calc(100vh-10rem)] lg:h-[calc(100vh-12rem)]">
+      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 ${selectedChat?.id ? 'h-[calc(100vh-10rem)] lg:h-[100vh-20rem]' : 'h-[calc(100vh-8rem)] sm:h-[calc(100vh-10rem)] lg:h-[calc(100vh-12rem)]'}`}>
         <div className={`lg:col-span-1 ${selectedChat?.id ? 'hidden lg:block' : 'block'}`}>
           <Card className="h-full flex flex-col">
             <div className="p-3 sm:p-4 border-b border-gray-200">
@@ -193,7 +193,7 @@ const ChatPage = () => {
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-hide">
+            <div className="flex-1 overflow-y-auto scrollbar-modern">
               {loading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
@@ -218,20 +218,22 @@ const ChatPage = () => {
           </Card>
         </div>
 
-        <div className={`lg:col-span-2 ${selectedChat?.id ? 'block' : 'hidden lg:block'}`}>
+        <div className={`lg:col-span-2 h-full ${selectedChat?.id ? 'block' : 'hidden lg:block'}`}>
           {selectedChat?.id ? (
-            <>
-              <div className="lg:hidden mb-4">
+            <div className="h-full flex flex-col lg:h-auto">
+              <div className="lg:hidden mb-4 flex-shrink-0">
                 <button
                   onClick={() => setSelectedChat(null)}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
                 >
-                  <span>←</span>
-                  <span>Quay lại</span>
+                  <span className="text-xl">←</span>
+                  <span className="font-medium">Quay lại</span>
                 </button>
               </div>
-              <ChatWindow key={selectedChat.id} chat={selectedChat} />
-            </>
+              <div className="flex-1 min-h-0 lg:flex-none lg:h-[calc(100vh-10rem)] mobile-zoom">
+                <ChatWindow key={selectedChat.id} chat={selectedChat} />
+              </div>
+            </div>
           ) : (
             <Card className="h-full flex items-center justify-center">
               <div className="text-center text-gray-500 px-4">
