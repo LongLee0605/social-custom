@@ -1,11 +1,28 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Avatar from '../ui/Avatar'
 import AlertModal from '../ui/AlertModal'
 import { useUserInfo } from '../../hooks/useUserInfo'
-import { Image, X } from 'lucide-react'
+import { Image, X, Smile } from 'lucide-react'
+
+const EMOJI_LIST = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
+  '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰',
+  '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜',
+  '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏',
+  '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+  '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠',
+  '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨',
+  '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥',
+  '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧',
+  '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
+  '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑',
+  '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻',
+  '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸',
+  '😹', '😻', '😼', '😽', '🙀', '😿', '😾'
+]
 
 const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
   const { userProfile, currentUser } = useAuth()
@@ -15,6 +32,18 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
   const [imagePreview, setImagePreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, type: 'info', title: '', message: '' })
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const textareaRef = useRef(null)
+
+  // Reset emoji picker khi modal đóng
+  useEffect(() => {
+    if (!isOpen) {
+      setShowEmojiPicker(false)
+      setContent('')
+      setImage(null)
+      setImagePreview(null)
+    }
+  }, [isOpen])
 
   const handleImageChange = (e) => {
     const file = e.target.files[0]
@@ -31,6 +60,27 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
   const handleRemoveImage = () => {
     setImage(null)
     setImagePreview(null)
+  }
+
+  const insertEmoji = (emoji) => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const textBefore = content.substring(0, start)
+      const textAfter = content.substring(end)
+      setContent(textBefore + emoji + textAfter)
+      setShowEmojiPicker(false)
+      // Focus lại textarea và đặt cursor sau emoji vừa chèn
+      setTimeout(() => {
+        textarea.focus()
+        const newPosition = start + emoji.length
+        textarea.setSelectionRange(newPosition, newPosition)
+      }, 0)
+    } else {
+      setContent((prev) => prev + emoji)
+      setShowEmojiPicker(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -90,6 +140,7 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
           />
           <div className="flex-1 min-w-0">
             <textarea
+              ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Bạn đang nghĩ gì?"
@@ -115,17 +166,44 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
           </div>
         </div>
 
+        {showEmojiPicker && (
+          <div className="p-3 sm:p-4 border-t border-gray-200 bg-gray-50 max-h-48 overflow-y-auto overflow-x-hidden scrollbar-thin">
+            <div className="grid grid-cols-6 sm:grid-cols-8 gap-1 sm:gap-2 max-w-full">
+              {EMOJI_LIST.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => insertEmoji(emoji)}
+                  className="text-xl sm:text-2xl hover:scale-125 transition-transform p-1 hover:bg-gray-200 rounded"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-3 sm:pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
-          <label className="flex items-center space-x-2 text-sm sm:text-base text-gray-600 hover:text-primary-600 cursor-pointer justify-center sm:justify-start">
-            <Image className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span>Thêm ảnh</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
-            />
-          </label>
+          <div className="flex items-center space-x-3 sm:space-x-4 justify-center sm:justify-start">
+            <label className="flex items-center space-x-2 text-sm sm:text-base text-gray-600 hover:text-primary-600 cursor-pointer">
+              <Image className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Thêm ảnh</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="flex items-center space-x-2 text-sm sm:text-base text-gray-600 hover:text-primary-600 transition-colors"
+            >
+              <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Icon</span>
+            </button>
+          </div>
           <div className="flex space-x-2 sm:space-x-3">
             <Button type="button" variant="secondary" onClick={onClose} className="flex-1 sm:flex-initial">
               Hủy

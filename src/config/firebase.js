@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getAnalytics, isSupported } from 'firebase/analytics'
+import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBsLFd75ObytqGXfuucX2-ymWMETRN-vpc",
@@ -23,7 +24,10 @@ googleProvider.setCustomParameters({
 })
 
 let analytics = null
+let messaging = null
+
 if (typeof window !== 'undefined') {
+  // Initialize Analytics
   isSupported()
     .then((yes) => {
       if (yes) {
@@ -32,8 +36,20 @@ if (typeof window !== 'undefined') {
     })
     .catch((err) => {
     })
+
+  // Initialize Cloud Messaging
+  isMessagingSupported()
+    .then((yes) => {
+      if (yes && 'serviceWorker' in navigator) {
+        messaging = getMessaging(app)
+      }
+    })
+    .catch((err) => {
+      console.log('Firebase Cloud Messaging is not supported:', err)
+    })
 }
-export { analytics }
+
+export { analytics, messaging }
 
 export default app
 

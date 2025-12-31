@@ -11,8 +11,10 @@
 - ✅ Live chat real-time
 - ✅ Trang cá nhân
 - ✅ Cài đặt tài khoản
-- ✅ Thông báo real-time (like, comment, follow, message)
+- ✅ Thông báo real-time (like, comment, follow, message, new post)
 - ✅ Reactions cho tin nhắn
+- ✅ **PWA (Progressive Web App)** - Cài đặt như ứng dụng mobile
+- ✅ **Push Notifications** - Nhận thông báo trên điện thoại
 
 ## Công nghệ sử dụng
 
@@ -56,6 +58,9 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 VITE_UPLOAD_SERVICE=cloudinary
 VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
 VITE_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
+
+# Firebase Cloud Messaging (cho Push Notifications)
+VITE_FIREBASE_VAPID_KEY=your_vapid_key
 ```
 
 ### 4. Cấu hình Firebase
@@ -162,55 +167,69 @@ npm run build
 
 File build sẽ nằm trong thư mục `dist/`
 
-## Deploy lên Firebase Hosting
+## PWA và Push Notifications
+
+### Thiết lập PWA
+
+Ứng dụng đã được cấu hình sẵn như PWA:
+- **Manifest**: `public/manifest.json`
+- **Service Worker**: `public/sw.js`
+- **Icons**: Placeholder icons đã được tạo (nên thay bằng PNG icons thật)
+
+### Thiết lập Push Notifications
+
+1. **Lấy VAPID Key**:
+   - Vào Firebase Console > Project Settings > Cloud Messaging
+   - Generate Web Push certificate (nếu chưa có)
+   - Copy VAPID key và thêm vào `.env`: `VITE_FIREBASE_VAPID_KEY=your_key`
+
+2. **Upgrade Firebase Plan** (cần cho Cloud Functions):
+   - Vào: https://console.firebase.google.com/project/your-project/usage/details
+   - Upgrade lên **Blaze plan** (có free tier rộng rãi)
+
+3. **Deploy Cloud Functions**:
+   ```bash
+   cd functions
+   npm install
+   cd ..
+   firebase deploy --only functions
+   ```
+
+## Deploy lên Firebase
 
 ### 1. Đăng nhập Firebase CLI
-
-Trước khi deploy, bạn cần đăng nhập vào Firebase:
 
 ```bash
 npx firebase login
 ```
 
-Lệnh này sẽ mở trình duyệt để bạn đăng nhập với tài khoản Google của mình. Sau khi đăng nhập thành công, bạn có thể tiếp tục.
+### 2. Deploy
 
-### 2. Kiểm tra project Firebase
-
-Đảm bảo project ID trong file `.firebaserc` khớp với project của bạn:
+Deploy toàn bộ (build + hosting + rules):
 
 ```bash
-npx firebase projects:list
+npm run build
+firebase deploy
 ```
 
-Nếu cần thay đổi project:
+Hoặc deploy từng phần:
 
 ```bash
-npx firebase use <project-id>
+# Deploy Firestore Rules
+firebase deploy --only firestore:rules
+
+# Deploy Cloud Functions (sau khi upgrade plan)
+firebase deploy --only functions
+
+# Deploy Hosting
+firebase deploy --only hosting
 ```
 
-### 3. Deploy
+### 3. Sau khi deploy
 
-Deploy toàn bộ (build + hosting):
-
-```bash
-npm run deploy
-```
-
-Hoặc chỉ deploy hosting (sau khi đã build):
-
-```bash
-npm run deploy:hosting
-```
-
-### 4. Khởi tạo Firebase Hosting (lần đầu)
-
-Nếu chưa khởi tạo Firebase Hosting:
-
-```bash
-npx firebase init hosting
-```
-
-Lưu ý: Chọn `dist` làm thư mục public directory.
+- **PWA**: Mở app trên mobile, click menu > "Install app"
+- **Push Notifications**: Cho phép notifications khi được hỏi
+- **Test**: Gửi tin nhắn từ account khác để test push notifications
 
 ## Lưu ý quan trọng
 
@@ -226,6 +245,12 @@ Lưu ý: Chọn `dist` làm thư mục public directory.
 ### Firestore Indexes
 - Nếu gặp lỗi `failed-precondition`, cần tạo composite indexes
 - Ứng dụng sẽ tự động fallback về client-side sorting nếu thiếu index
+
+### PWA & Push Notifications
+- **Icons**: Hiện dùng SVG placeholder, nên thay bằng PNG icons thật (xem `public/icons/README.md`)
+- **HTTPS**: PWA và Push Notifications chỉ hoạt động trên HTTPS (hoặc localhost)
+- **Browser Support**: Chrome/Edge có full support, Safari iOS có limited support
+- **VAPID Key**: Bắt buộc phải có để push notifications hoạt động
 
 ## License
 

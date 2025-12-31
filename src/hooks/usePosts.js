@@ -99,7 +99,7 @@ export const usePosts = (filterByFollowing = false) => {
         return { success: false, error: 'Vui lòng nhập nội dung hoặc chọn ảnh' }
       }
 
-      await addDoc(collection(db, 'posts'), {
+      const postDocRef = await addDoc(collection(db, 'posts'), {
         userId: currentUser.uid,
         userName: userProfile?.displayName || currentUser.displayName || 'Người dùng',
         userPhotoURL: userProfile?.photoURL || currentUser.photoURL || '',
@@ -110,6 +110,35 @@ export const usePosts = (filterByFollowing = false) => {
         commentCount: 0,
         createdAt: serverTimestamp(),
       })
+
+      // Gửi thông báo cho tất cả người theo dõi
+      try {
+        const currentUserDoc = await getDoc(doc(db, 'users', currentUser.uid))
+        if (currentUserDoc.exists()) {
+          const userData = currentUserDoc.data()
+          const followers = userData.followers || []
+          
+          // Gửi thông báo cho từng người theo dõi
+          const notificationPromises = followers.map((followerId) =>
+            createNotification({
+              userId: followerId,
+              type: 'new_post',
+              title: 'Người bạn theo dõi đã đăng bài mới',
+              message: 'đã đăng một bài viết mới',
+              link: `/?postId=${postDocRef.id}`,
+              relatedUserId: currentUser.uid,
+              relatedPostId: postDocRef.id,
+            }).catch((error) => {
+              console.error(`Error creating notification for follower ${followerId}:`, error)
+            })
+          )
+          
+          await Promise.all(notificationPromises)
+        }
+      } catch (notificationError) {
+        console.error('Error sending notifications to followers:', notificationError)
+        // Không fail toàn bộ nếu thông báo lỗi
+      }
 
       return { success: true }
     } catch (error) {
@@ -257,9 +286,6 @@ export const usePosts = (filterByFollowing = false) => {
       }
 
       const level = (parentComment.level || 0) + 1
-      if (level > 2) {
-        return { success: false, error: 'Không thể trả lời quá 3 tầng' }
-      }
 
       const newReply = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),

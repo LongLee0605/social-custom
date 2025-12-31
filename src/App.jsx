@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import Layout from './components/layout/Layout'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
+import { usePushNotifications } from './hooks/usePushNotifications'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
@@ -17,9 +18,16 @@ const LoadingSpinner = () => (
   </div>
 )
 
+// Component để khởi tạo push notifications
+const PushNotificationInitializer = () => {
+  usePushNotifications()
+  return null
+}
+
 function App() {
   return (
     <AuthProvider>
+      <PushNotificationInitializer />
       <Router>
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>

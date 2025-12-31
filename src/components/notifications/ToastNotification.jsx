@@ -2,7 +2,7 @@ import { useEffect, memo, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../ui/Avatar'
 import { useUserInfo } from '../../hooks/useUserInfo'
-import { Heart, MessageCircle, UserPlus, MessageSquare, X } from 'lucide-react'
+import { Heart, MessageCircle, UserPlus, MessageSquare, FileText, X } from 'lucide-react'
 
 const ToastNotification = memo(({ notification, onClose, onMarkAsRead }) => {
   const userInfo = useUserInfo(notification.relatedUserId)
@@ -26,6 +26,8 @@ const ToastNotification = memo(({ notification, onClose, onMarkAsRead }) => {
         return <UserPlus className="w-5 h-5 text-green-500" />
       case 'message':
         return <MessageSquare className="w-5 h-5 text-purple-500" />
+      case 'new_post':
+        return <FileText className="w-5 h-5 text-orange-500" />
       default:
         return <MessageCircle className="w-5 h-5 text-gray-500" />
     }
@@ -39,6 +41,7 @@ const ToastNotification = memo(({ notification, onClose, onMarkAsRead }) => {
     switch (notification.type) {
       case 'like':
       case 'comment':
+      case 'new_post':
         return notification.relatedPostId ? `/?postId=${notification.relatedPostId}` : '/'
       case 'message':
         return notification.relatedUserId ? `/chat?userId=${notification.relatedUserId}` : '/chat'

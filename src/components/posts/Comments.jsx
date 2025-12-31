@@ -73,7 +73,7 @@ const CommentItem = memo(({ comment, currentUser, onDelete, onReact, onReply, re
     return linkifyText(comment.text)
   }, [comment.text])
 
-  const canReply = level < 2
+  const canReply = true
 
   return (
     <div className={`${level > 0 ? 'ml-4 sm:ml-6 mt-2' : ''}`}>
