@@ -10,7 +10,6 @@ const rootDir = join(__dirname, '..');
 
 const args = process.argv.slice(2);
 const hostingOnly = args.includes('--hosting-only');
-const skipFunctions = args.includes('--skip-functions');
 
 const log = {
   success: (msg) => console.log(chalk.green(`✓ ${msg}`)),
@@ -118,47 +117,7 @@ const deployFirestoreRules = () => {
   }
 };
 
-const deployFunctions = () => {
-  const spinner = ora({
-    text: chalk.cyan('Deploying Cloud Functions...'),
-    spinner: {
-      interval: 80,
-      frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-    },
-  }).start();
-
-  try {
-    const output = execSync('npx firebase deploy --only functions', {
-      cwd: rootDir,
-      stdio: 'pipe',
-      encoding: 'utf-8',
-    });
-    spinner.succeed(chalk.green('Cloud Functions deployed successfully'));
-    return true;
-  } catch (error) {
-    const errorOutput = error.stdout?.toString() || error.stderr?.toString() || error.message || '';
-    
-    // Check if error is about Blaze plan
-    if (errorOutput.includes('Blaze') || errorOutput.includes('pay-as-you-go') || errorOutput.includes('artifactregistry')) {
-      spinner.warn(chalk.yellow('Cloud Functions skipped - Blaze plan required'));
-      console.log('\n');
-      log.warning('⚠️  Cloud Functions requires Blaze (pay-as-you-go) plan');
-      log.info('To enable push notifications:');
-      log.step('1. Upgrade your Firebase plan:');
-      console.log(chalk.cyan('   https://console.firebase.google.com/project/my-social-9bc6a/usage/details'));
-      log.step('2. Then run:');
-      console.log(chalk.cyan('   firebase deploy --only functions'));
-      console.log('\n');
-      return true; // Continue deployment
-    } else {
-      spinner.fail(chalk.red('Cloud Functions deployment failed'));
-      if (errorOutput) {
-        console.log(chalk.red(errorOutput));
-      }
-      return true; // Still continue with hosting
-    }
-  }
-};
+// Cloud Functions đã được loại bỏ - sử dụng Vercel API thay thế
 
 const deployToFirebase = () => {
   const spinner = ora({
@@ -196,12 +155,9 @@ const showSummary = (success) => {
     console.log(chalk.white('   • Hosting URL: ') + chalk.yellow('https://my-social-9bc6a.web.app'));
     console.log(chalk.white('   • View your deployed app in the Hosting section'));
     console.log('\n');
-    if (!skipFunctions) {
-      console.log(chalk.yellow('📱 Note: Push notifications require Cloud Functions'));
-      console.log(chalk.yellow('   If functions were skipped, upgrade to Blaze plan and run:'));
-      console.log(chalk.cyan('   firebase deploy --only functions'));
-      console.log('\n');
-    }
+    console.log(chalk.yellow('📱 Note: Push notifications use Vercel API (free)'));
+    console.log(chalk.yellow('   See README.md for setup instructions'));
+    console.log('\n');
   } else {
     console.log(chalk.red.bold('╔═══════════════════════════════════════════════════════════════╗'));
     console.log(chalk.red.bold('║') + chalk.white.bold('  ❌  DEPLOYMENT FAILED - CHECK ERRORS ABOVE              ') + chalk.red.bold('║'));
@@ -236,18 +192,10 @@ const main = async () => {
   deployFirestoreRules();
   console.log('');
 
-  // Deploy Cloud Functions (skip if flag is set)
-  if (!skipFunctions) {
-    log.step('Step 4: Deploying Cloud Functions');
-    deployFunctions();
-    console.log('');
-  } else {
-    log.info('Skipping Cloud Functions deployment (--skip-functions flag)');
-    console.log('');
-  }
+  // Cloud Functions đã được loại bỏ - sử dụng Vercel API thay thế
 
   // Deploy Hosting
-  log.step('Step 5: Deploying to Firebase Hosting');
+  log.step('Step 4: Deploying to Firebase Hosting');
   const deploySuccess = deployToFirebase();
 
   showSummary(deploySuccess);

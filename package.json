@@ -11,7 +11,6 @@
     "deploy": "node scripts/deploy.js",
     "deploy:hosting": "node scripts/deploy.js --hosting-only",
     "deploy:all": "node scripts/deploy.js",
-    "deploy:skip-functions": "node scripts/deploy.js --skip-functions",
     "generate:icons": "node scripts/generate-pwa-icons-simple.js",
     "firebase:init": "npx firebase init hosting"
   },

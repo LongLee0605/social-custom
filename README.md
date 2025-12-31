@@ -62,7 +62,7 @@ VITE_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 # Firebase Cloud Messaging (cho Push Notifications)
 VITE_FIREBASE_VAPID_KEY=your_vapid_key
 
-# Vercel API URL (nếu dùng Vercel thay vì Cloud Functions)
+# Vercel API URL (cho push notifications)
 VITE_PUSH_API_URL=https://your-vercel-app.vercel.app/api/send-push
 ```
 
@@ -181,9 +181,7 @@ File build sẽ nằm trong thư mục `dist/`
 
 ### Thiết lập Push Notifications
 
-Có 2 cách để thiết lập push notifications:
-
-#### Cách 1: Sử dụng Vercel (Miễn phí - Khuyến nghị)
+Ứng dụng sử dụng **Vercel Serverless Functions** (miễn phí) để gửi push notifications:
 
 1. **Lấy FCM Server Key**:
    - Vào Firebase Console > Project Settings > Cloud Messaging
@@ -209,18 +207,6 @@ Có 2 cách để thiết lập push notifications:
    firebase deploy --only hosting
    ```
 
-#### Cách 2: Sử dụng Firebase Cloud Functions (Cần Blaze plan)
-
-1. **Lấy VAPID Key**: Tương tự như trên
-2. **Upgrade Firebase Plan**: Upgrade lên Blaze plan
-3. **Deploy Cloud Functions**:
-   ```bash
-   cd functions
-   npm install
-   cd ..
-   firebase deploy --only functions
-   ```
-
 ## Deploy lên Firebase
 
 ### 1. Đăng nhập Firebase CLI
@@ -243,9 +229,6 @@ Hoặc deploy từng phần:
 ```bash
 # Deploy Firestore Rules
 firebase deploy --only firestore:rules
-
-# Deploy Cloud Functions (sau khi upgrade plan)
-firebase deploy --only functions
 
 # Deploy Hosting
 firebase deploy --only hosting
