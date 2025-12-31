@@ -13,7 +13,7 @@ import { Image, X, Download, CheckCircle, Smartphone } from 'lucide-react'
 
 const SettingsPage = () => {
   const { userProfile, currentUser, fetchUserProfile } = useAuth()
-  const { isInstallable, isInstalled, installPWA } = usePWA()
+  const { isInstallable, isInstalled, isMobile, installPWA } = usePWA()
   const fileInputRef = useRef(null)
   const [formData, setFormData] = useState({
     displayName: '',
