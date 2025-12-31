@@ -12,8 +12,9 @@ const ChatPage = lazy(() => import('./pages/ChatPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+  <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+    <p className="text-gray-600 text-sm">Đang tải...</p>
   </div>
 )
 

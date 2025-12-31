@@ -273,7 +273,9 @@ const SettingsPage = () => {
                   ? 'Ứng dụng đã được cài đặt trên thiết bị của bạn'
                   : isInstallable
                   ? 'Cài đặt ứng dụng để truy cập nhanh hơn và sử dụng offline'
-                  : 'Ứng dụng có thể được cài đặt trên thiết bị di động. Mở trên trình duyệt mobile để cài đặt.'}
+                  : isMobile
+                  ? 'Trên trình duyệt mobile, bạn có thể cài đặt ứng dụng từ menu trình duyệt (Menu > "Thêm vào màn hình chính" hoặc "Install app")'
+                  : 'Mở ứng dụng trên thiết bị di động để cài đặt'}
               </p>
             </div>
             <div className="ml-4">
