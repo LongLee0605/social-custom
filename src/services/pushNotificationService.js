@@ -1,38 +1,25 @@
-import { getToken, onMessage } from 'firebase/messaging'
 import { messaging } from '../config/firebase'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { getToken, onMessage } from 'firebase/messaging'
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import { getAuth } from 'firebase/auth'
 
-// VAPID key - Cần thay bằng key từ Firebase Console
-// Lấy từ: Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || ''
 
 /**
- * Đăng ký service worker và lấy FCM token
+ * Yêu cầu quyền thông báo từ người dùng
  */
 export const requestNotificationPermission = async () => {
   if (!('Notification' in window)) {
     console.log('This browser does not support notifications')
-    return null
+    return 'not-supported'
   }
 
-  if (Notification.permission === 'granted') {
-    return await getFCMToken()
-  }
-
-  if (Notification.permission !== 'denied') {
-    const permission = await Notification.requestPermission()
-    if (permission === 'granted') {
-      return await getFCMToken()
-    }
-  }
-
-  return null
+  const permission = await Notification.requestPermission()
+  return permission
 }
 
 /**
- * Lấy FCM token
+ * Lấy FCM token và lưu vào Firestore
  */
 export const getFCMToken = async () => {
   if (!messaging) {
@@ -41,12 +28,10 @@ export const getFCMToken = async () => {
   }
 
   try {
-    // Đăng ký service worker
     const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/'
     })
 
-    // Lấy FCM token
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: registration
@@ -54,11 +39,10 @@ export const getFCMToken = async () => {
 
     if (token) {
       console.log('FCM Token:', token)
-      // Lưu token vào Firestore
       await saveTokenToFirestore(token)
       return token
     } else {
-      console.log('No registration token available')
+      console.log('No registration token available. Request permission to generate one.')
       return null
     }
   } catch (error) {
@@ -70,32 +54,33 @@ export const getFCMToken = async () => {
 /**
  * Lưu FCM token vào Firestore
  */
-const saveTokenToFirestore = async (token) => {
-  const auth = getAuth()
-  const user = auth.currentUser
-
-  if (!user) {
-    console.log('User not logged in, cannot save token')
-    return
-  }
-
+export const saveTokenToFirestore = async (token) => {
   try {
-    const userTokensRef = doc(db, 'userFCMTokens', user.uid)
+    const auth = (await import('../config/firebase')).auth
+    const { getAuth } = await import('firebase/auth')
+    const currentUser = getAuth().currentUser
+
+    if (!currentUser) {
+      console.log('No user logged in')
+      return
+    }
+
+    const userTokensRef = doc(db, 'userFCMTokens', currentUser.uid)
     const userTokensDoc = await getDoc(userTokensRef)
 
     if (userTokensDoc.exists()) {
-      const tokens = userTokensDoc.data().tokens || []
-      if (!tokens.includes(token)) {
-        await setDoc(userTokensRef, {
-          tokens: [...tokens, token],
-          updatedAt: new Date().toISOString()
-        }, { merge: true })
+      const existingTokens = userTokensDoc.data().tokens || []
+      if (!existingTokens.includes(token)) {
+        await updateDoc(userTokensRef, {
+          tokens: [...existingTokens, token],
+          updatedAt: serverTimestamp()
+        })
       }
     } else {
       await setDoc(userTokensRef, {
         tokens: [token],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       })
     }
   } catch (error) {
@@ -107,31 +92,30 @@ const saveTokenToFirestore = async (token) => {
  * Xóa FCM token khỏi Firestore
  */
 export const deleteTokenFromFirestore = async (token) => {
-  const auth = getAuth()
-  const user = auth.currentUser
-
-  if (!user) {
-    return
-  }
-
   try {
-    const userTokensRef = doc(db, 'userFCMTokens', user.uid)
+    const { getAuth } = await import('firebase/auth')
+    const currentUser = getAuth().currentUser
+
+    if (!currentUser) {
+      return
+    }
+
+    const userTokensRef = doc(db, 'userFCMTokens', currentUser.uid)
     const userTokensDoc = await getDoc(userTokensRef)
 
     if (userTokensDoc.exists()) {
-      const tokens = userTokensDoc.data().tokens || []
-      const updatedTokens = tokens.filter(t => t !== token)
+      const existingTokens = userTokensDoc.data().tokens || []
+      const updatedTokens = existingTokens.filter(t => t !== token)
 
-      if (updatedTokens.length === 0) {
-        // Xóa document nếu không còn token nào
-        await setDoc(userTokensRef, {
-          tokens: [],
-          updatedAt: new Date().toISOString()
-        }, { merge: true })
+      if (updatedTokens.length > 0) {
+        await updateDoc(userTokensRef, {
+          tokens: updatedTokens,
+          updatedAt: serverTimestamp()
+        })
       } else {
         await setDoc(userTokensRef, {
           tokens: updatedTokens,
-          updatedAt: new Date().toISOString()
+          updatedAt: serverTimestamp()
         }, { merge: true })
       }
     }

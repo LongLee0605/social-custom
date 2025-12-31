@@ -1,6 +1,8 @@
 import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { db } from '../config/firebase'
+import { sendPushNotification } from './pushNotificationClient'
+import { getUserFCMTokens } from './pushNotificationService'
 
 export const createNotification = async ({ userId, type, title, message, link, relatedUserId, relatedPostId }) => {
   try {
@@ -48,7 +50,27 @@ export const createNotification = async ({ userId, type, title, message, link, r
       createdAt: serverTimestamp(),
     }
 
-    await addDoc(collection(db, 'notifications'), notificationData)
+    const notificationRef = await addDoc(collection(db, 'notifications'), notificationData)
+
+    // Gửi push notification qua Vercel API (thay thế Cloud Functions)
+    try {
+      const tokens = await getUserFCMTokens(userId)
+      if (tokens && tokens.length > 0) {
+        await sendPushNotification({
+          notification: {
+            ...notificationData,
+            notificationId: notificationRef.id,
+          },
+          tokens,
+        }).catch((error) => {
+          console.error('Error sending push notification:', error)
+          // Không fail nếu push notification lỗi
+        })
+      }
+    } catch (pushError) {
+      console.error('Error in push notification flow:', pushError)
+      // Không fail nếu push notification lỗi
+    }
 
     return { success: true }
   } catch (error) {

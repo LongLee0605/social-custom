@@ -1,4 +1,19 @@
-<svg width="152" height="152" xmlns="http://www.w3.org/2000/svg">
-  <rect width="152" height="152" fill="#6366f1" rx="30.400000000000002"/>
-  <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="60.800000000000004" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">SC</text>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="152" height="152" viewBox="0 0 152 152" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad152" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#818cf8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow152">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <!-- Background với safe zone cho maskable -->
+  <rect width="152" height="152" rx="38" fill="url(#grad152)" filter="url(#shadow152)"/>
+  <!-- Safe zone circle -->
+  <circle cx="76" cy="76" r="53.199999999999996" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <!-- Letter S -->
+  <text x="50%" y="50%" font-family="system-ui, -apple-system, sans-serif" font-size="68.4" font-weight="700" fill="white" text-anchor="middle" dominant-baseline="central" letter-spacing="-2">S</text>
 </svg>

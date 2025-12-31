@@ -61,6 +61,9 @@ VITE_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 
 # Firebase Cloud Messaging (cho Push Notifications)
 VITE_FIREBASE_VAPID_KEY=your_vapid_key
+
+# Vercel API URL (nếu dùng Vercel thay vì Cloud Functions)
+VITE_PUSH_API_URL=https://your-vercel-app.vercel.app/api/send-push
 ```
 
 ### 4. Cấu hình Firebase
@@ -178,15 +181,38 @@ File build sẽ nằm trong thư mục `dist/`
 
 ### Thiết lập Push Notifications
 
-1. **Lấy VAPID Key**:
+Có 2 cách để thiết lập push notifications:
+
+#### Cách 1: Sử dụng Vercel (Miễn phí - Khuyến nghị)
+
+1. **Lấy FCM Server Key**:
+   - Vào Firebase Console > Project Settings > Cloud Messaging
+   - Copy **Server key** từ phần Cloud Messaging API (Legacy)
+
+2. **Lấy VAPID Key**:
    - Vào Firebase Console > Project Settings > Cloud Messaging
    - Generate Web Push certificate (nếu chưa có)
    - Copy VAPID key và thêm vào `.env`: `VITE_FIREBASE_VAPID_KEY=your_key`
 
-2. **Upgrade Firebase Plan** (cần cho Cloud Functions):
-   - Vào: https://console.firebase.google.com/project/your-project/usage/details
-   - Upgrade lên **Blaze plan** (có free tier rộng rãi)
+3. **Deploy lên Vercel**:
+   ```bash
+   npm i -g vercel
+   vercel login
+   vercel
+   ```
+   - Thêm environment variable trong Vercel Dashboard: `FCM_SERVER_KEY=your_server_key`
+   - Copy Vercel URL và thêm vào `.env`: `VITE_PUSH_API_URL=https://your-app.vercel.app/api/send-push`
 
+4. **Rebuild và deploy**:
+   ```bash
+   npm run build
+   firebase deploy --only hosting
+   ```
+
+#### Cách 2: Sử dụng Firebase Cloud Functions (Cần Blaze plan)
+
+1. **Lấy VAPID Key**: Tương tự như trên
+2. **Upgrade Firebase Plan**: Upgrade lên Blaze plan
 3. **Deploy Cloud Functions**:
    ```bash
    cd functions

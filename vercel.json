@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "api/send-push.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/send-push",
+      "destination": "/api/send-push.js"
+    }
+  ]
+}
+

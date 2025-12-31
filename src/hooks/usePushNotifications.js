@@ -3,33 +3,70 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   requestNotificationPermission,
   getFCMToken,
+  deleteTokenFromFirestore,
   onMessageListener,
-  deleteTokenFromFirestore
 } from '../services/pushNotificationService'
 
 export const usePushNotifications = () => {
   const { currentUser } = useAuth()
   const [fcmToken, setFcmToken] = useState(null)
-  const [permission, setPermission] = useState(typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default')
+  const [permission, setPermission] = useState(Notification.permission || 'default')
   const [isSupported, setIsSupported] = useState(false)
 
+  // Kiểm tra browser support
   useEffect(() => {
-    // Kiểm tra browser support
     const checkSupport = () => {
-      const supported = 
-        'Notification' in window &&
+      const supported =
         'serviceWorker' in navigator &&
-        'PushManager' in window
+        'PushManager' in window &&
+        'Notification' in window
       setIsSupported(supported)
     }
-
     checkSupport()
+  }, [])
 
-    // Kiểm tra permission status
+  // Kiểm tra permission
+  useEffect(() => {
     if ('Notification' in window) {
       setPermission(Notification.permission)
     }
   }, [])
+
+  // Khởi tạo push notifications
+  const initializePushNotifications = useCallback(async () => {
+    if (!isSupported || !currentUser) {
+      return
+    }
+
+    try {
+      // Yêu cầu permission
+      const permissionResult = await requestNotificationPermission()
+      setPermission(permissionResult)
+
+      if (permissionResult === 'granted') {
+        // Lấy FCM token
+        const token = await getFCMToken()
+        if (token) {
+          setFcmToken(token)
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing push notifications:', error)
+    }
+  }, [isSupported, currentUser])
+
+  // Đăng ký push notifications
+  const handleSubscribe = useCallback(async () => {
+    await initializePushNotifications()
+  }, [initializePushNotifications])
+
+  // Hủy đăng ký push notifications
+  const handleUnsubscribe = useCallback(async () => {
+    if (fcmToken) {
+      await deleteTokenFromFirestore(fcmToken)
+      setFcmToken(null)
+    }
+  }, [fcmToken])
 
   // Đăng ký push notifications khi user đăng nhập
   useEffect(() => {
@@ -39,7 +76,7 @@ export const usePushNotifications = () => {
       // Xóa token khi logout
       handleUnsubscribe()
     }
-  }, [currentUser, isSupported, fcmToken]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentUser, isSupported, fcmToken, initializePushNotifications, handleUnsubscribe])
 
   // Lắng nghe tin nhắn khi app đang mở
   useEffect(() => {
@@ -49,76 +86,21 @@ export const usePushNotifications = () => {
       try {
         const payload = await onMessageListener()
         if (payload) {
-          // Hiển thị notification trong app (ToastNotification đã xử lý)
           console.log('Foreground message:', payload)
         }
       } catch (error) {
         console.error('Error setting up message listener:', error)
       }
     }
-
     setupMessageListener()
   }, [currentUser, isSupported])
-
-  const initializePushNotifications = useCallback(async () => {
-    if (!isSupported) {
-      console.log('Push notifications not supported')
-      return
-    }
-
-    try {
-      const token = await requestNotificationPermission()
-      if (token) {
-        setFcmToken(token)
-        setPermission('granted')
-      } else {
-        setPermission(Notification.permission)
-      }
-    } catch (error) {
-      console.error('Error initializing push notifications:', error)
-      setPermission(Notification.permission)
-    }
-  }, [isSupported])
-
-  const handleSubscribe = useCallback(async () => {
-    if (!isSupported) {
-      alert('Trình duyệt của bạn không hỗ trợ push notifications')
-      return false
-    }
-
-    try {
-      const token = await requestNotificationPermission()
-      if (token) {
-        setFcmToken(token)
-        setPermission('granted')
-        return true
-      } else {
-        setPermission(Notification.permission)
-        return false
-      }
-    } catch (error) {
-      console.error('Error subscribing to push notifications:', error)
-      return false
-    }
-  }, [isSupported])
-
-  const handleUnsubscribe = useCallback(async () => {
-    if (fcmToken) {
-      try {
-        await deleteTokenFromFirestore(fcmToken)
-        setFcmToken(null)
-      } catch (error) {
-        console.error('Error unsubscribing from push notifications:', error)
-      }
-    }
-  }, [fcmToken])
 
   return {
     fcmToken,
     permission,
     isSupported,
     subscribe: handleSubscribe,
-    unsubscribe: handleUnsubscribe
+    unsubscribe: handleUnsubscribe,
   }
 }
 
