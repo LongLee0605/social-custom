@@ -9,11 +9,18 @@ export const usePWA = () => {
   const [isSupported, setIsSupported] = useState(false)
 
   useEffect(() => {
-    // Kiểm tra mobile và PWA support
-    const mobile = isMobileDevice()
-    const supported = isPWASupported()
-    setIsMobile(mobile)
-    setIsSupported(supported)
+    // Kiểm tra mobile và PWA support ngay lập tức
+    let mobile = false
+    let supported = false
+    try {
+      mobile = isMobileDevice()
+      supported = isPWASupported()
+      setIsMobile(mobile)
+      setIsSupported(supported)
+    } catch (error) {
+      setIsMobile(false)
+      setIsSupported(false)
+    }
     
     // Kiểm tra xem app đã được cài đặt chưa (nhiều cách)
     const checkInstalled = () => {
@@ -43,13 +50,13 @@ export const usePWA = () => {
       return false
     }
     
+    // Kiểm tra ngay lập tức
     if (checkInstalled()) {
       return
     }
 
     // Lắng nghe beforeinstallprompt event (Chrome, Edge, etc.)
     const handleBeforeInstallPrompt = (e) => {
-      console.log('[PWA] beforeinstallprompt event fired')
       e.preventDefault()
       setDeferredPrompt(e)
       setIsInstallable(true)
@@ -57,8 +64,17 @@ export const usePWA = () => {
     
     // Kiểm tra lại sau một khoảng thời gian (để đảm bảo service worker đã load)
     const checkInstallability = () => {
+      // Kiểm tra lại xem đã được cài đặt chưa
+      if (checkInstalled()) {
+        return
+      }
+      
+      // Kiểm tra lại mobile và supported (có thể thay đổi)
+      const currentMobile = isMobileDevice()
+      const currentSupported = isPWASupported()
+      
       // Kiểm tra xem có thể install không (cho mobile browsers)
-      if (mobile && supported && !checkInstalled()) {
+      if (currentMobile && currentSupported) {
         // Trên mobile, có thể hiển thị button ngay cả khi chưa có beforeinstallprompt
         // Vì một số trình duyệt mobile không trigger event này ngay lập tức
         const hasManifest = document.querySelector('link[rel="manifest"]')

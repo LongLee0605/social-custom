@@ -12,6 +12,8 @@ const LoadingScreen = ({ onComplete }) => {
 
   useEffect(() => {
     // Kiểm tra mobile
+    if (typeof window === 'undefined') return
+    
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024)
     }
@@ -135,11 +137,16 @@ const LoadingScreen = ({ onComplete }) => {
   }
 
   // Kích thước: PC 500x250, Mobile scale
-  const svgWidth = isMobile ? Math.min(400, window.innerWidth * 0.9) : 500
+  const svgWidth = isMobile && typeof window !== 'undefined' 
+    ? Math.min(400, window.innerWidth * 0.9) 
+    : 500
   const svgHeight = isMobile ? (svgWidth * 250) / 500 : 250
 
-  // Fallback cho trình duyệt không hỗ trợ SVG animation tốt
-  const hasSVGSupport = typeof SVGElement !== 'undefined' && 'getTotalLength' in SVGElement.prototype
+  // Kiểm tra SVG support - đơn giản hóa để tương thích với mọi trình duyệt
+  const hasSVGSupport = typeof window !== 'undefined' && 
+                        typeof document !== 'undefined' &&
+                        typeof SVGElement !== 'undefined' && 
+                        'createElementNS' in document
 
   return (
     <div 
@@ -155,7 +162,7 @@ const LoadingScreen = ({ onComplete }) => {
       }}
     >
       {/* Chỉ hiển thị animation bản vẽ */}
-      {showAnimation && hasSVGSupport ? (
+      {showAnimation ? (
         <div 
           className="flex items-center justify-center"
           style={{
@@ -165,30 +172,39 @@ const LoadingScreen = ({ onComplete }) => {
             maxHeight: '90vh'
           }}
         >
-          <DrawingAnimation
-            paths={getDrawingPaths()}
-            width={480}
-            height={230}
-            duration={2500}
-            autoPlay={true}
-            strokeColor="#6366f1"
-            onComplete={handleAnimationComplete}
-          />
+          {hasSVGSupport ? (
+            <DrawingAnimation
+              paths={getDrawingPaths()}
+              width={480}
+              height={230}
+              duration={2500}
+              autoPlay={true}
+              strokeColor="#6366f1"
+              onComplete={handleAnimationComplete}
+            />
+          ) : (
+            // Fallback đơn giản nếu không hỗ trợ SVG
+            <div 
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                border: '2px solid #6366f1', 
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <div style={{ 
+                width: '80%', 
+                height: '80%', 
+                border: '1px solid #6366f1', 
+                borderRadius: '2px' 
+              }}></div>
+            </div>
+          )}
         </div>
-      ) : (
-        // Fallback cho trình duyệt không hỗ trợ
-        <div 
-          className="flex items-center justify-center"
-          style={{
-            width: `${svgWidth}px`,
-            height: `${svgHeight}px`,
-            maxWidth: '90vw',
-            maxHeight: '90vh'
-          }}
-        >
-          <div style={{ width: '100%', height: '100%', border: '2px solid #6366f1', borderRadius: '4px' }}></div>
-        </div>
-      )}
+      ) : null}
     </div>
   )
 }

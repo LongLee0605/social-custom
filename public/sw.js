@@ -23,7 +23,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
-        console.log('[SW] Caching static assets')
         return cache.addAll(urlsToCache)
       })
       .catch((error) => {
@@ -40,7 +39,6 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE && cacheName !== IMAGE_CACHE) {
-            console.log('[SW] Deleting old cache:', cacheName)
             return caches.delete(cacheName)
           }
         })
@@ -148,7 +146,6 @@ self.addEventListener('sync', (event) => {
 })
 
 async function syncData() {
-  console.log('[SW] Background sync: Syncing data...')
   // Có thể thêm logic sync data khi online lại
   return Promise.resolve()
 }

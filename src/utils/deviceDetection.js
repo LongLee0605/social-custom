@@ -48,18 +48,33 @@ export const isUCBrowser = () => {
 export const isPWASupported = () => {
   if (typeof window === 'undefined') return false
   
-  // Kiểm tra service worker support
-  const hasServiceWorker = 'serviceWorker' in navigator
-  
-  // Kiểm tra manifest support
-  const hasManifest = 'onbeforeinstallprompt' in window || 'standalone' in navigator
-  
-  // Kiểm tra display mode
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                       window.matchMedia('(display-mode: minimal-ui)').matches ||
-                       (window.navigator.standalone === true)
-  
-  return hasServiceWorker || hasManifest || isStandalone
+  try {
+    // Kiểm tra service worker support
+    const hasServiceWorker = 'serviceWorker' in navigator
+    
+    // Kiểm tra manifest support
+    const hasManifest = 'onbeforeinstallprompt' in window || 
+                       (window.navigator && 'standalone' in window.navigator)
+    
+    // Kiểm tra display mode
+    let isStandalone = false
+    if (window.matchMedia) {
+      try {
+        isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                       window.matchMedia('(display-mode: minimal-ui)').matches
+      } catch (e) {
+        // Ignore matchMedia errors
+      }
+    }
+    
+    if (window.navigator && window.navigator.standalone === true) {
+      isStandalone = true
+    }
+    
+    return hasServiceWorker || hasManifest || isStandalone
+  } catch (error) {
+    return false
+  }
 }
 
 /**
@@ -68,24 +83,28 @@ export const isPWASupported = () => {
 export const isPWAInstalled = () => {
   if (typeof window === 'undefined') return false
   
-  // Kiểm tra display mode
-  if (window.matchMedia('(display-mode: standalone)').matches) {
-    return true
-  }
-  
-  // Kiểm tra iOS standalone
-  if (window.navigator.standalone === true) {
-    return true
-  }
-  
-  // Kiểm tra minimal-ui (Android)
-  if (window.matchMedia('(display-mode: minimal-ui)').matches) {
-    return true
-  }
-  
-  // Kiểm tra fullscreen mode
-  if (window.matchMedia('(display-mode: fullscreen)').matches) {
-    return true
+  try {
+    // Kiểm tra display mode
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      return true
+    }
+    
+    // Kiểm tra iOS standalone
+    if (window.navigator && window.navigator.standalone === true) {
+      return true
+    }
+    
+    // Kiểm tra minimal-ui (Android)
+    if (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) {
+      return true
+    }
+    
+    // Kiểm tra fullscreen mode
+    if (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) {
+      return true
+    }
+  } catch (error) {
+    // Silent fail
   }
   
   return false

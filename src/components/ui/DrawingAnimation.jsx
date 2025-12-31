@@ -17,9 +17,10 @@ const DrawingAnimation = ({
   const pathRefs = useRef([])
 
   useEffect(() => {
-    if (!autoPlay) return
+    if (!autoPlay || paths.length === 0) return
 
     const startTime = Date.now()
+    let animationFrameId = null
     
     const animate = () => {
       const elapsed = Date.now() - startTime
@@ -27,14 +28,25 @@ const DrawingAnimation = ({
       setProgress(currentProgress)
       
       if (currentProgress < 1) {
-        requestAnimationFrame(animate)
+        animationFrameId = requestAnimationFrame(animate)
       } else {
-        onComplete?.()
+        // Đảm bảo onComplete được gọi
+        if (onComplete) {
+          setTimeout(() => {
+            onComplete()
+          }, 100)
+        }
       }
     }
     
-    requestAnimationFrame(animate)
-  }, [autoPlay, duration, onComplete])
+    animationFrameId = requestAnimationFrame(animate)
+    
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+      }
+    }
+  }, [autoPlay, duration, onComplete, paths.length])
 
   // Tính toán progress cho từng path - vẽ tuần tự từng path một
   const getPathProgress = (index) => {

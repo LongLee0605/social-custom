@@ -13,7 +13,7 @@ import { Image, X, Download, CheckCircle, Smartphone } from 'lucide-react'
 
 const SettingsPage = () => {
   const { userProfile, currentUser, fetchUserProfile } = useAuth()
-  const { isInstallable, isInstalled, isMobile, installPWA } = usePWA()
+  const { isInstallable = false, isInstalled = false, isMobile = false, installPWA } = usePWA()
   const fileInputRef = useRef(null)
   const [formData, setFormData] = useState({
     displayName: '',
@@ -262,7 +262,7 @@ const SettingsPage = () => {
       <Card>
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Ứng dụng</h2>
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between lg:flex-row flex-col lg:gap-0 gap-6">
             <div className="flex-1">
               <div className="flex items-center space-x-3 mb-2">
                 <Smartphone className="w-5 h-5 text-primary-600" />
