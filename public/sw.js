@@ -1,13 +1,20 @@
-// Service Worker cho PWA và Push Notifications
-const CACHE_NAME = 'social-custom-v2'
-const STATIC_CACHE = 'static-v2'
-const DYNAMIC_CACHE = 'dynamic-v2'
+// Service Worker cho PWA - Enhanced với offline support
+const CACHE_VERSION = 'v3'
+const STATIC_CACHE = `static-${CACHE_VERSION}`
+const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`
+const IMAGE_CACHE = `images-${CACHE_VERSION}`
 
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/icons/icon-72x72.svg',
+  '/icons/icon-96x96.svg',
+  '/icons/icon-128x128.svg',
+  '/icons/icon-144x144.svg',
+  '/icons/icon-152x152.svg',
   '/icons/icon-192x192.svg',
+  '/icons/icon-384x384.svg',
   '/icons/icon-512x512.svg',
 ]
 
@@ -32,7 +39,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE && cacheName !== IMAGE_CACHE) {
             console.log('[SW] Deleting old cache:', cacheName)
             return caches.delete(cacheName)
           }
@@ -43,7 +50,7 @@ self.addEventListener('activate', (event) => {
   return self.clients.claim()
 })
 
-// Fetch event - Cache first strategy với network fallback
+// Fetch event - Enhanced caching strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
@@ -53,7 +60,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Skip Firebase và external APIs
+  // Skip Firebase và external APIs (không cache)
   if (
     url.origin.includes('firebase') ||
     url.origin.includes('googleapis') ||
@@ -62,6 +69,34 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  // Cache images separately
+  if (request.destination === 'image') {
+    event.respondWith(
+      caches.open(IMAGE_CACHE)
+        .then((cache) => {
+          return cache.match(request)
+            .then((cachedImage) => {
+              if (cachedImage) {
+                return cachedImage
+              }
+              return fetch(request)
+                .then((response) => {
+                  if (response && response.status === 200) {
+                    cache.put(request, response.clone())
+                  }
+                  return response
+                })
+                .catch(() => {
+                  // Return placeholder image if offline
+                  return new Response('', { status: 404 })
+                })
+            })
+        })
+    )
+    return
+  }
+
+  // HTML và assets - Cache first với network fallback
   event.respondWith(
     caches.match(request)
       .then((cachedResponse) => {
@@ -81,8 +116,12 @@ self.addEventListener('fetch', (event) => {
             // Clone response for caching
             const responseToCache = response.clone()
 
-            // Cache in dynamic cache
-            caches.open(DYNAMIC_CACHE)
+            // Cache in appropriate cache
+            const cacheName = request.destination === 'document' || request.url.endsWith('.html')
+              ? STATIC_CACHE
+              : DYNAMIC_CACHE
+
+            caches.open(cacheName)
               .then((cache) => {
                 cache.put(request, responseToCache)
               })
@@ -90,101 +129,41 @@ self.addEventListener('fetch', (event) => {
             return response
           })
           .catch(() => {
-            // Network failed, return offline page if available
-            if (request.headers.get('accept').includes('text/html')) {
+            // Network failed - return offline page for HTML requests
+            if (request.headers.get('accept')?.includes('text/html')) {
               return caches.match('/index.html')
             }
+            // For other requests, return empty response
+            return new Response('', { status: 503, statusText: 'Service Unavailable' })
           })
       })
   )
 })
 
-// Push event listener
-self.addEventListener('push', (event) => {
-  console.log('Push notification received:', event)
-  
-  let notificationData = {
-    title: 'Social Custom',
-    body: 'Bạn có thông báo mới',
-      icon: '/icons/icon-192x192.svg',
-      badge: '/icons/icon-72x72.svg',
-    tag: 'social-custom-notification',
-    requireInteraction: false,
-    data: {}
+// Background Sync - Sync data when back online
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-data') {
+    event.waitUntil(syncData())
   }
-
-  if (event.data) {
-    try {
-      const data = event.data.json()
-      notificationData = {
-        title: data.title || notificationData.title,
-        body: data.body || data.message || notificationData.body,
-        icon: data.icon || notificationData.icon,
-        badge: data.badge || notificationData.badge,
-        image: data.image || null,
-        tag: data.tag || notificationData.tag,
-        requireInteraction: data.requireInteraction || false,
-        data: data.data || {},
-        actions: data.actions || []
-      }
-    } catch (e) {
-      notificationData.body = event.data.text() || notificationData.body
-    }
-  }
-
-  event.waitUntil(
-    self.registration.showNotification(notificationData.title, {
-      body: notificationData.body,
-      icon: notificationData.icon,
-      badge: notificationData.badge,
-      image: notificationData.image,
-      tag: notificationData.tag,
-      requireInteraction: notificationData.requireInteraction,
-      data: notificationData.data,
-      actions: notificationData.actions,
-      vibrate: [200, 100, 200],
-      timestamp: Date.now()
-    })
-  )
 })
 
-// Notification click event
-self.addEventListener('notificationclick', (event) => {
-  console.log('Notification clicked:', event)
-  
-  event.notification.close()
+async function syncData() {
+  console.log('[SW] Background sync: Syncing data...')
+  // Có thể thêm logic sync data khi online lại
+  return Promise.resolve()
+}
 
-  const notificationData = event.notification.data || {}
-  let urlToOpen = '/'
-
-  // Determine URL based on notification type
-  if (notificationData.type === 'message' && notificationData.relatedUserId) {
-    urlToOpen = `/chat?userId=${notificationData.relatedUserId}`
-  } else if (notificationData.type === 'comment' || notificationData.type === 'like' || notificationData.type === 'new_post') {
-    if (notificationData.relatedPostId) {
-      urlToOpen = `/?postId=${notificationData.relatedPostId}`
-    }
-  } else if (notificationData.type === 'follow' && notificationData.relatedUserId) {
-    urlToOpen = `/profile/${notificationData.relatedUserId}`
-  } else if (notificationData.link) {
-    urlToOpen = notificationData.link
+// Message event - Communication với main thread
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
   }
-
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        // Check if there's already a window/tab open with the target URL
-        for (let i = 0; i < clientList.length; i++) {
-          const client = clientList[i]
-          if (client.url === urlToOpen && 'focus' in client) {
-            return client.focus()
-          }
-        }
-        // If no window is open, open a new one
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen)
-        }
+  if (event.data && event.data.type === 'CACHE_URLS') {
+    event.waitUntil(
+      caches.open(STATIC_CACHE).then((cache) => {
+        return cache.addAll(event.data.urls)
       })
-  )
+    )
+  }
 })
 

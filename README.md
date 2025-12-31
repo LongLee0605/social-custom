@@ -59,11 +59,7 @@ VITE_UPLOAD_SERVICE=cloudinary
 VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
 VITE_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 
-# Firebase Cloud Messaging (cho Push Notifications)
-VITE_FIREBASE_VAPID_KEY=your_vapid_key
-
-# Vercel API URL (cho push notifications)
-VITE_PUSH_API_URL=https://your-vercel-app.vercel.app/api/send-push
+# Không cần environment variables đặc biệt cho PWA
 ```
 
 ### 4. Cấu hình Firebase
@@ -170,42 +166,27 @@ npm run build
 
 File build sẽ nằm trong thư mục `dist/`
 
-## PWA và Push Notifications
+## PWA (Progressive Web App)
 
-### Thiết lập PWA
+### Tính năng PWA
 
-Ứng dụng đã được cấu hình sẵn như PWA:
-- **Manifest**: `public/manifest.json`
-- **Service Worker**: `public/sw.js`
-- **Icons**: Placeholder icons đã được tạo (nên thay bằng PNG icons thật)
+Ứng dụng đã được cấu hình đầy đủ như PWA với các tính năng:
+- **Manifest**: `public/manifest.json` - Cấu hình app metadata
+- **Service Worker**: `public/sw.js` - Enhanced với offline support
+- **Icons**: SVG icons tự động tạo (chạy `npm run generate:icons` để tạo lại)
+- **Offline Support**: Cache assets và images để hoạt động offline
+- **Fast Loading**: Cache-first strategy cho performance tốt hơn
+- **Background Sync**: Tự động sync data khi có kết nối lại
 
-### Thiết lập Push Notifications
+### Tính năng PWA
 
-Ứng dụng sử dụng **Vercel Serverless Functions** (miễn phí) để gửi push notifications:
+Ứng dụng hỗ trợ đầy đủ PWA với các tính năng:
 
-1. **Lấy FCM Server Key**:
-   - Vào Firebase Console > Project Settings > Cloud Messaging
-   - Copy **Server key** từ phần Cloud Messaging API (Legacy)
-
-2. **Lấy VAPID Key**:
-   - Vào Firebase Console > Project Settings > Cloud Messaging
-   - Generate Web Push certificate (nếu chưa có)
-   - Copy VAPID key và thêm vào `.env`: `VITE_FIREBASE_VAPID_KEY=your_key`
-
-3. **Deploy lên Vercel**:
-   ```bash
-   npm i -g vercel
-   vercel login
-   vercel
-   ```
-   - Thêm environment variable trong Vercel Dashboard: `FCM_SERVER_KEY=your_server_key`
-   - Copy Vercel URL và thêm vào `.env`: `VITE_PUSH_API_URL=https://your-app.vercel.app/api/send-push`
-
-4. **Rebuild và deploy**:
-   ```bash
-   npm run build
-   firebase deploy --only hosting
-   ```
+- **Cài đặt như app mobile**: Người dùng có thể cài đặt ứng dụng trên điện thoại/desktop
+- **Offline support**: Service Worker cache các tài nguyên để hoạt động offline
+- **Fast loading**: Cache-first strategy cho assets và images
+- **Background sync**: Tự động sync data khi có kết nối lại
+- **App-like experience**: Chạy như ứng dụng native, không có thanh địa chỉ trình duyệt
 
 ## Deploy lên Firebase
 
@@ -255,11 +236,12 @@ firebase deploy --only hosting
 - Nếu gặp lỗi `failed-precondition`, cần tạo composite indexes
 - Ứng dụng sẽ tự động fallback về client-side sorting nếu thiếu index
 
-### PWA & Push Notifications
-- **Icons**: Hiện dùng SVG placeholder, nên thay bằng PNG icons thật (xem `public/icons/README.md`)
-- **HTTPS**: PWA và Push Notifications chỉ hoạt động trên HTTPS (hoặc localhost)
+### PWA
+- **Icons**: SVG icons đã được tạo tự động (chạy `npm run generate:icons` để tạo lại)
+- **HTTPS**: PWA chỉ hoạt động trên HTTPS (hoặc localhost)
 - **Browser Support**: Chrome/Edge có full support, Safari iOS có limited support
-- **VAPID Key**: Bắt buộc phải có để push notifications hoạt động
+- **Offline Mode**: Service Worker cache assets và images để hoạt động offline
+- **Install Prompt**: Tự động hiển thị prompt cài đặt khi có thể
 
 ## License
 

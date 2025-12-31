@@ -155,8 +155,8 @@ const showSummary = (success) => {
     console.log(chalk.white('   • Hosting URL: ') + chalk.yellow('https://my-social-9bc6a.web.app'));
     console.log(chalk.white('   • View your deployed app in the Hosting section'));
     console.log('\n');
-    console.log(chalk.yellow('📱 Note: Push notifications use Vercel API (free)'));
-    console.log(chalk.yellow('   See README.md for setup instructions'));
+    console.log(chalk.yellow('📱 Note: PWA is ready to install'));
+    console.log(chalk.yellow('   Users can install the app from browser menu'));
     console.log('\n');
   } else {
     console.log(chalk.red.bold('╔═══════════════════════════════════════════════════════════════╗'));
