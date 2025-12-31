@@ -99,10 +99,12 @@ const Header = () => {
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="container-custom px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">S</span>
-            </div>
+          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+            <img 
+              src="/logo.svg" 
+              alt="Social Custom Logo" 
+              className="w-8 h-8 sm:w-10 sm:h-10"
+            />
             <span className="text-xl font-bold text-gray-900 hidden sm:block">
               Social Custom
             </span>

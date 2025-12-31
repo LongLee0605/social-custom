@@ -233,8 +233,9 @@ firebase deploy --only hosting
   - User chỉ có thể xem notifications của mình
 
 ### Firestore Indexes
-- Nếu gặp lỗi `failed-precondition`, cần tạo composite indexes
-- Ứng dụng sẽ tự động fallback về client-side sorting nếu thiếu index
+- Indexes đã được định nghĩa trong `firestore.indexes.json`
+- Deploy indexes: `firebase deploy --only firestore:indexes`
+- Indexes đã được deploy tự động khi chạy `npm run deploy`
 
 ### PWA
 - **Icons**: SVG icons đã được tạo tự động (chạy `npm run generate:icons` để tạo lại)

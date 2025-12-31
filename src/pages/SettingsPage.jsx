@@ -8,10 +8,12 @@ import Input from '../components/ui/Input'
 import Button from '../components/ui/Button'
 import Avatar from '../components/ui/Avatar'
 import AlertModal from '../components/ui/AlertModal'
-import { Image, X } from 'lucide-react'
+import { usePWA } from '../hooks/usePWA'
+import { Image, X, Download, CheckCircle, Smartphone } from 'lucide-react'
 
 const SettingsPage = () => {
   const { userProfile, currentUser, fetchUserProfile } = useAuth()
+  const { isInstallable, isInstalled, installPWA } = usePWA()
   const fileInputRef = useRef(null)
   const [formData, setFormData] = useState({
     displayName: '',
@@ -21,6 +23,7 @@ const SettingsPage = () => {
   const [selectedAvatar, setSelectedAvatar] = useState(null)
   const [loading, setLoading] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [installingPWA, setInstallingPWA] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, type: 'info', title: '', message: '' })
 
   useEffect(() => {
@@ -252,6 +255,79 @@ const SettingsPage = () => {
               <input type="checkbox" className="sr-only peer" defaultChecked />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
             </label>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Ứng dụng</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <Smartphone className="w-5 h-5 text-primary-600" />
+                <p className="font-medium text-gray-900">Cài đặt ứng dụng</p>
+              </div>
+              <p className="text-sm text-gray-500 ml-8">
+                {isInstalled 
+                  ? 'Ứng dụng đã được cài đặt trên thiết bị của bạn'
+                  : isInstallable
+                  ? 'Cài đặt ứng dụng để truy cập nhanh hơn và sử dụng offline'
+                  : 'Ứng dụng có thể được cài đặt trên thiết bị di động. Mở trên trình duyệt mobile để cài đặt.'}
+              </p>
+            </div>
+            <div className="ml-4">
+              {isInstalled ? (
+                <div className="flex items-center space-x-2 text-green-600">
+                  <CheckCircle className="w-5 h-5" />
+                  <span className="text-sm font-medium">Đã cài đặt</span>
+                </div>
+              ) : isInstallable ? (
+                <Button
+                  variant="primary"
+                  onClick={async () => {
+                    setInstallingPWA(true)
+                    try {
+                      const result = await installPWA()
+                      if (result.success) {
+                        setAlert({
+                          isOpen: true,
+                          type: 'success',
+                          title: 'Thành công',
+                          message: 'Ứng dụng đã được cài đặt thành công!',
+                        })
+                      } else {
+                        setAlert({
+                          isOpen: true,
+                          type: 'info',
+                          title: 'Thông tin',
+                          message: result.error || 'Cài đặt đã bị hủy',
+                        })
+                      }
+                    } catch (error) {
+                      setAlert({
+                        isOpen: true,
+                        type: 'error',
+                        title: 'Lỗi',
+                        message: 'Không thể cài đặt ứng dụng. Vui lòng thử lại.',
+                      })
+                    } finally {
+                      setInstallingPWA(false)
+                    }
+                  }}
+                  disabled={installingPWA}
+                  loading={installingPWA}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {installingPWA ? 'Đang cài đặt...' : 'Cài đặt ứng dụng'}
+                </Button>
+              ) : (
+                <div className="text-sm text-gray-500 text-center">
+                  <p>Không khả dụng</p>
+                  <p className="text-xs mt-1">Mở trên mobile</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </Card>

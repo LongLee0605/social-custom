@@ -117,6 +117,26 @@ const deployFirestoreRules = () => {
   }
 };
 
+const deployFirestoreIndexes = () => {
+  const spinner = ora({
+    text: chalk.cyan('Deploying Firestore Indexes...'),
+    spinner: {
+      interval: 80,
+      frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    },
+  }).start();
+
+  const result = runCommand('npx firebase deploy --only firestore:indexes', { silent: true });
+
+  if (result.success) {
+    spinner.succeed(chalk.green('Firestore Indexes deployed successfully'));
+    return true;
+  } else {
+    spinner.fail(chalk.yellow('Firestore Indexes deployment skipped (may already be deployed)'));
+    return true; // Continue even if indexes fail
+  }
+};
+
 // Cloud Functions đã được loại bỏ - sử dụng Vercel API thay thế
 
 const deployToFirebase = () => {
@@ -187,9 +207,10 @@ const main = async () => {
   }
   console.log('');
 
-  // Deploy Firestore Rules
-  log.step('Step 3: Deploying Firestore Rules');
+  // Deploy Firestore Rules và Indexes
+  log.step('Step 3: Deploying Firestore Rules and Indexes');
   deployFirestoreRules();
+  deployFirestoreIndexes();
   console.log('');
 
   // Cloud Functions đã được loại bỏ - sử dụng Vercel API thay thế
