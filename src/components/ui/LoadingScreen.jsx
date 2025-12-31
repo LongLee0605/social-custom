@@ -138,17 +138,24 @@ const LoadingScreen = ({ onComplete }) => {
   const svgWidth = isMobile ? Math.min(400, window.innerWidth * 0.9) : 500
   const svgHeight = isMobile ? (svgWidth * 250) / 500 : 250
 
+  // Fallback cho trình duyệt không hỗ trợ SVG animation tốt
+  const hasSVGSupport = typeof SVGElement !== 'undefined' && 'getTotalLength' in SVGElement.prototype
+
   return (
     <div 
       className={`fixed inset-0 bg-white z-[9999] flex items-center justify-center transition-opacity duration-500 ${
         animationComplete ? 'opacity-0' : 'opacity-100'
       }`}
       style={{
-        pointerEvents: animationComplete ? 'none' : 'auto'
+        pointerEvents: animationComplete ? 'none' : 'auto',
+        WebkitTransition: 'opacity 0.5s ease-out',
+        MozTransition: 'opacity 0.5s ease-out',
+        msTransition: 'opacity 0.5s ease-out',
+        OTransition: 'opacity 0.5s ease-out'
       }}
     >
       {/* Chỉ hiển thị animation bản vẽ */}
-      {showAnimation && (
+      {showAnimation && hasSVGSupport ? (
         <div 
           className="flex items-center justify-center"
           style={{
@@ -167,6 +174,19 @@ const LoadingScreen = ({ onComplete }) => {
             strokeColor="#6366f1"
             onComplete={handleAnimationComplete}
           />
+        </div>
+      ) : (
+        // Fallback cho trình duyệt không hỗ trợ
+        <div 
+          className="flex items-center justify-center"
+          style={{
+            width: `${svgWidth}px`,
+            height: `${svgHeight}px`,
+            maxWidth: '90vw',
+            maxHeight: '90vh'
+          }}
+        >
+          <div style={{ width: '100%', height: '100%', border: '2px solid #6366f1', borderRadius: '4px' }}></div>
         </div>
       )}
     </div>

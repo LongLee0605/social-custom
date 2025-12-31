@@ -298,6 +298,14 @@ const SettingsPage = () => {
                           title: 'Thành công',
                           message: 'Ứng dụng đã được cài đặt thành công!',
                         })
+                      } else if (result.manual) {
+                        // Hướng dẫn cài đặt thủ công
+                        setAlert({
+                          isOpen: true,
+                          type: 'info',
+                          title: 'Hướng dẫn cài đặt',
+                          message: result.error || 'Vui lòng sử dụng menu trình duyệt để cài đặt ứng dụng.',
+                        })
                       } else {
                         setAlert({
                           isOpen: true,
@@ -307,11 +315,12 @@ const SettingsPage = () => {
                         })
                       }
                     } catch (error) {
+                      console.error('PWA install error:', error)
                       setAlert({
                         isOpen: true,
                         type: 'error',
                         title: 'Lỗi',
-                        message: 'Không thể cài đặt ứng dụng. Vui lòng thử lại.',
+                        message: error.message || 'Không thể cài đặt ứng dụng. Vui lòng thử lại.',
                       })
                     } finally {
                       setInstallingPWA(false)
