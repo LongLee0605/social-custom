@@ -56,14 +56,7 @@ export const usePWA = () => {
     }
     
     // Kiểm tra lại sau một khoảng thời gian (để đảm bảo service worker đã load)
-    let checkTimeout = null
     const checkInstallability = () => {
-      // Nếu đã có deferredPrompt, không cần check lại
-      if (deferredPrompt) {
-        setIsInstallable(true)
-        return
-      }
-      
       // Kiểm tra xem có thể install không (cho mobile browsers)
       if (mobile && supported && !checkInstalled()) {
         // Trên mobile, có thể hiển thị button ngay cả khi chưa có beforeinstallprompt
@@ -72,20 +65,15 @@ export const usePWA = () => {
         const hasServiceWorker = 'serviceWorker' in navigator
         
         if (hasManifest && hasServiceWorker) {
-          // Đợi một chút để service worker có thể register
-          setTimeout(() => {
-            if (!checkInstalled() && !deferredPrompt) {
-              // Vẫn hiển thị button cho mobile, hướng dẫn user cài đặt thủ công
-              setIsInstallable(true)
-            }
-          }, 2000)
+          // Vẫn hiển thị button cho mobile, hướng dẫn user cài đặt thủ công
+          setIsInstallable(true)
         }
       }
     }
     
     // Check ngay và sau 2 giây
     checkInstallability()
-    checkTimeout = setTimeout(checkInstallability, 2000)
+    const checkTimeout = setTimeout(checkInstallability, 2000)
 
     // Lắng nghe appinstalled event
     const handleAppInstalled = () => {
@@ -116,7 +104,9 @@ export const usePWA = () => {
     window.addEventListener('appinstalled', handleAppInstalled)
 
     return () => {
-      clearTimeout(checkTimeout)
+      if (checkTimeout) {
+        clearTimeout(checkTimeout)
+      }
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
       if (standaloneMediaQuery && standaloneMediaQuery.removeEventListener) {
@@ -126,7 +116,7 @@ export const usePWA = () => {
         minimalUIMediaQuery.removeEventListener('change', handleDisplayModeChange)
       }
     }
-  }, [deferredPrompt])
+  }, []) // Chỉ chạy một lần khi mount
 
   const installPWA = async () => {
     // Nếu có deferredPrompt, sử dụng nó
@@ -149,9 +139,12 @@ export const usePWA = () => {
       }
     }
     
-    // Nếu không có deferredPrompt nhưng là mobile và supported
-    // Hướng dẫn user cài đặt thủ công
-    if (isMobile && isSupported) {
+    // Nếu không có deferredPrompt, kiểm tra lại mobile và supported
+    const currentMobile = isMobileDevice()
+    const currentSupported = isPWASupported()
+    
+    // Nếu là mobile và supported, hướng dẫn user cài đặt thủ công
+    if (currentMobile && currentSupported) {
       return { 
         success: false, 
         error: 'Vui lòng sử dụng menu trình duyệt để cài đặt: Menu > "Thêm vào màn hình chính" hoặc "Install app"',
