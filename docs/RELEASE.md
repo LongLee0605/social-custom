@@ -11,12 +11,25 @@ npm run build
 
 Sau đó: [QA_CHECKLIST.md](./QA_CHECKLIST.md) trên staging.
 
-Deploy rules/indexes trước client:
+Deploy lên Firebase Hosting (local):
 
 ```bash
-firebase deploy --only firestore:rules,firestore:indexes
+npm ci
 npm run build
-firebase deploy --only hosting
+npx firebase login
+npx firebase deploy --only firestore:rules,firestore:indexes
+npx firebase deploy --only hosting
+```
+
+Hoặc một lệnh: `npm run deploy` (build + rules + indexes + hosting).
+
+**GitHub Actions** (`firebase-deploy.yml`): cần secrets `FIREBASE_SERVICE_ACCOUNT` và các `VITE_*` (xem `.env.example`). Workflow đã cài Java 17 cho `test:rules`.
+
+**Lưu ý:** `test:rules` cần Java trên máy local. Nếu chưa cài Java, vẫn deploy hosting được:
+
+```bash
+npm run build
+npx firebase deploy --only hosting
 ```
 
 Migration tùy chọn (sau backup):

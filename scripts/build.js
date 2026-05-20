@@ -52,7 +52,7 @@ const buildProject = () => {
   try {
     execSync('npx vite build', {
       cwd: rootDir,
-      stdio: 'pipe',
+      stdio: ['inherit', 'pipe', 'pipe'],
       encoding: 'utf-8',
     });
 
@@ -62,7 +62,8 @@ const buildProject = () => {
     spinner.fail(chalk.red('Build failed!'));
     console.log('\n');
     console.log(chalk.red('Error details:'));
-    console.log(chalk.gray(error.message));
+    const out = error.stdout || error.stderr || error.message || String(error);
+    console.log(chalk.gray(out));
     return false;
   }
 };

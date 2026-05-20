@@ -85,7 +85,7 @@ const buildProject = () => {
     },
   }).start();
 
-  const result = runCommand('npm run build', { silent: true });
+  const result = runCommand('npm run build', { silent: false });
 
   if (result.success) {
     spinner.succeed(chalk.green('Project built successfully'));

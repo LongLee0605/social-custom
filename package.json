@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore.rules.test.js\"",
     "emulators": "firebase emulators:start --only auth,firestore",
+    "build:firebase": "npm run build",
     "deploy": "node scripts/deploy.js",
     "deploy:hosting": "node scripts/deploy.js --hosting-only",
     "deploy:all": "node scripts/deploy.js",
