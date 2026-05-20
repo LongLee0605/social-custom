@@ -23,7 +23,7 @@ npx firebase deploy --only hosting
 
 Hoặc một lệnh: `npm run deploy` (build + rules + indexes + hosting).
 
-**GitHub Actions** (`firebase-deploy.yml`): bắt buộc secret **`FIREBASE_SERVICE_ACCOUNT`** (JSON service account) hoặc **`FIREBASE_TOKEN`**. Hướng dẫn: [FIREBASE_CI_SETUP.md](./FIREBASE_CI_SETUP.md).
+**GitHub Actions** (`firebase-deploy.yml`): Environment **`production`** + secret **`FIREBASE_SERVICE_ACCOUNT`** (full JSON). Hướng dẫn: [FIREBASE_CI_SETUP.md](./FIREBASE_CI_SETUP.md).
 
 **Lưu ý:** `test:rules` cần Java trên máy local. Nếu chưa cài Java, vẫn deploy hosting được:
 
