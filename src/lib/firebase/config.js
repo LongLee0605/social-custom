@@ -1,11 +1,3 @@
-const requiredEnvKeys = [
-  'VITE_FIREBASE_API_KEY',
-  'VITE_FIREBASE_AUTH_DOMAIN',
-  'VITE_FIREBASE_PROJECT_ID',
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  'VITE_FIREBASE_APP_ID',
-]
-
 /** Public web config for project my-social-9bc6a (safe to embed in client bundle) */
 const projectDefaults = {
   apiKey: 'AIzaSyBsLFd75ObytqGXfuucX2-ymWMETRN-vpc',

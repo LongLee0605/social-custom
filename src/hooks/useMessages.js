@@ -155,7 +155,7 @@ export const useMessages = (chatId) => {
     }
   }, [chatId, lastMessageDoc, hasMore])
 
-  const sendMessage = async (text, imageURL = null, fileURL = null, fileName = null, fileSize = null) => {
+  const sendMessage = useCallback(async (text, imageURL = null, fileURL = null, fileName = null, fileSize = null) => {
     if (!chatId || !currentUser) return { success: false, error: 'Missing chatId or user' }
 
     const tempId = `temp_${Date.now()}_${Math.random()}`
@@ -268,7 +268,7 @@ export const useMessages = (chatId) => {
 
       return { success: false, error: error.message, tempId }
     }
-  }
+  }, [chatId, currentUser, userProfile])
 
   const editMessage = async (messageId, newText) => {
     if (!chatId || !currentUser || !newText.trim()) return { success: false }

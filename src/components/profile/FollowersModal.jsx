@@ -1,12 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import Modal from '../ui/Modal'
 import Avatar from '../ui/Avatar'
-import { useUserInfo } from '../../hooks/useUserInfo'
-import { X } from 'lucide-react'
-
 const FollowersModal = ({ isOpen, onClose, userIds, title = 'Người theo dõi' }) => {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)

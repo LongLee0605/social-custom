@@ -12,6 +12,7 @@ const sortByCreatedAt = (items) =>
     return tb - ta
   })
 
+// eslint-disable-next-line react-refresh/only-export-components -- context hook
 export const useNotifications = () => {
   const ctx = useContext(NotificationsContext)
   if (!ctx) throw new Error('useNotifications must be used within NotificationsProvider')

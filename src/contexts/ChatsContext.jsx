@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 
 const ChatsContext = createContext(null)
 
+// eslint-disable-next-line react-refresh/only-export-components -- context hook
 export const useChats = () => {
   const ctx = useContext(ChatsContext)
   if (!ctx) throw new Error('useChats must be used within ChatsProvider')

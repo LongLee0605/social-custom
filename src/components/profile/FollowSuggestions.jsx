@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -7,15 +7,14 @@ import { useAuth } from '../../contexts/AuthContext'
 import Card from '../ui/Card'
 import Avatar from '../ui/Avatar'
 import Button from '../ui/Button'
-import { useUserInfo } from '../../hooks/useUserInfo'
-import { UserPlus, X } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
 import { createNotification } from '../../services/notificationService'
 
 const FollowSuggestions = ({ maxSuggestions = 5 }) => {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser } = useAuth()
   const [suggestions, setSuggestions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [following, setFollowing] = useState(new Set())
+  const [, setFollowing] = useState(new Set())
 
   useEffect(() => {
     if (!currentUser) {

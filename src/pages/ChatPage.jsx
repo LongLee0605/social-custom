@@ -81,28 +81,18 @@ const ChatPage = () => {
     }
   }, [searchParams, currentUser, chats, setSearchParams])
 
+  // Chỉ sync theo chat id — tránh re-run khi từng field của selectedChat đổi
   useEffect(() => {
     if (isManualSelectionRef.current || !selectedChat?.id) return
 
     const updatedChat = chats.find((c) => c.id === selectedChat.id)
     if (!updatedChat) return
 
-    const hasChanges =
-      updatedChat.lastMessage !== selectedChat.lastMessage ||
-      updatedChat.unreadCount !== selectedChat.unreadCount ||
-      updatedChat.isOnline !== selectedChat.isOnline ||
-      updatedChat.userName !== selectedChat.userName ||
-      updatedChat.userPhotoURL !== selectedChat.userPhotoURL
-
-    if (hasChanges) {
-      setSelectedChat((prev) => {
-        if (prev?.id === updatedChat.id && !isManualSelectionRef.current) {
-          return { ...prev, ...updatedChat }
-        }
-        return prev
-      })
-    }
-  }, [chats])
+    setSelectedChat((prev) => {
+      if (prev?.id !== updatedChat.id || isManualSelectionRef.current) return prev
+      return { ...prev, ...updatedChat }
+    })
+  }, [chats, selectedChat?.id])
 
   const filteredChats = useMemo(() => {
     if (!searchQuery.trim()) return chats

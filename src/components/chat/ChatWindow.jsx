@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
 import Card from '../ui/Card'
 import Avatar from '../ui/Avatar'
 import { useMessages } from '../../hooks/useMessages'
@@ -15,7 +14,6 @@ import AlertModal from '../ui/AlertModal'
 import Input from '../ui/Input'
 
 const ChatWindow = ({ chat }) => {
-  const { currentUser } = useAuth()
   const chatId = chat?.id || ''
   const partnerId = chat?.userId || ''
 
@@ -185,7 +183,7 @@ const ChatWindow = ({ chat }) => {
     }
   }, [sendMessage, setTyping, scrollToBottom])
 
-  const handleSendImage = useCallback(async (imageURL, fileName) => {
+  const handleSendImage = useCallback(async (imageURL, _fileName) => {
     if (!imageURL) return
     setSending(true)
     try {

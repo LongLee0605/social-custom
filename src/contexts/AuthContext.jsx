@@ -7,6 +7,7 @@ import { serverTimestamp } from 'firebase/firestore'
 
 const AuthContext = createContext(null)
 
+// eslint-disable-next-line react-refresh/only-export-components -- context hook
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === null) {

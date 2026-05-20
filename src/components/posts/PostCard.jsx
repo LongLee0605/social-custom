@@ -231,11 +231,11 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment,
 
       <AlertModal
         isOpen={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
+        onClose={() => !deleting && setShowDeleteConfirm(false)}
         type="warning"
-        title="Xác nhận xóa"
+        title={deleting ? 'Đang xóa...' : 'Xác nhận xóa'}
         message="Bạn có chắc muốn xóa bài viết này? Hành động này không thể hoàn tác."
-        onConfirm={confirmDelete}
+        onConfirm={deleting ? undefined : confirmDelete}
       />
 
       <AlertModal

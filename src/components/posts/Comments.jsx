@@ -288,7 +288,7 @@ const Comments = memo(({ post, onAddComment, onDeleteComment, onReactComment, on
               onConfirm: null,
             })
           } else {
-            setAlert({ ...alert, isOpen: false, onConfirm: null })
+            setAlert((prev) => ({ ...prev, isOpen: false, onConfirm: null }))
           }
         } catch (error) {
           console.error('Error deleting comment:', error)
