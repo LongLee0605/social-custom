@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
@@ -6,12 +6,13 @@ import Layout from '@/components/layout/Layout'
 import LoginPage from '@/pages/LoginPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary'
+import { lazyRetry } from '@/utils/lazyRetry'
 
-const HomePage = lazy(() => import('@/pages/HomePage'))
-const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
-const ChatPage = lazy(() => import('@/pages/ChatPage'))
-const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
-const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'))
+const HomePage = lazyRetry(() => import('@/pages/HomePage'))
+const ProfilePage = lazyRetry(() => import('@/pages/ProfilePage'))
+const ChatPage = lazyRetry(() => import('@/pages/ChatPage'))
+const SettingsPage = lazyRetry(() => import('@/pages/SettingsPage'))
+const NotificationsPage = lazyRetry(() => import('@/pages/NotificationsPage'))
 
 const LoadingSpinner = () => (
   <div className="flex flex-col items-center justify-center min-h-screen bg-white">

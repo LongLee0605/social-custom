@@ -2,6 +2,9 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { clearChunkReloadFlag } from '@/utils/lazyRetry'
+
+clearChunkReloadFlag()
 
 const hideInitialLoading = () => {
   const el = document.getElementById('initial-loading')
