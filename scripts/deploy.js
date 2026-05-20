@@ -137,8 +137,6 @@ const deployFirestoreIndexes = () => {
   }
 };
 
-// Cloud Functions đã được loại bỏ - sử dụng Vercel API thay thế
-
 const deployToFirebase = () => {
   const spinner = ora({
     text: chalk.cyan('Deploying to Firebase Hosting...'),
@@ -213,9 +211,6 @@ const main = async () => {
   deployFirestoreIndexes();
   console.log('');
 
-  // Cloud Functions đã được loại bỏ - sử dụng Vercel API thay thế
-
-  // Deploy Hosting
   log.step('Step 4: Deploying to Firebase Hosting');
   const deploySuccess = deployToFirebase();
 

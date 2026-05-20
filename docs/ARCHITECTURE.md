@@ -4,7 +4,7 @@
 
 - **Frontend:** React 18, Vite, Tailwind, React Router
 - **Backend:** Firebase Auth, Firestore, Cloudinary (media)
-- **Deploy:** Firebase Hosting, optional Cloudflare Pages
+- **Deploy:** Firebase Hosting (GitHub Actions: `firebase-deploy.yml`)
 
 ## Source layout
 

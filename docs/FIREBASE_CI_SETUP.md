@@ -1,6 +1,6 @@
 # GitHub Actions → Firebase (build & deploy)
 
-Workflow: `.github/workflows/firebase-deploy.yml`
+Workflow duy nhất: `.github/workflows/firebase-deploy.yml` (không dùng Cloudflare Pages).
 
 | Job | Mô tả |
 |-----|--------|

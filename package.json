@@ -15,7 +15,6 @@
     "build:firebase": "npm run build",
     "deploy": "node scripts/deploy.js",
     "deploy:hosting": "node scripts/deploy.js --hosting-only",
-    "deploy:all": "node scripts/deploy.js",
     "generate:icons": "node scripts/generate-beautiful-icons.js",
     "migrate:comments": "node scripts/migrate-comments.js",
     "backfill:search": "node scripts/backfill-display-name-lower.js",
