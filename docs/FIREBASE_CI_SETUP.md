@@ -1,47 +1,88 @@
-# Cấu hình GitHub Actions deploy Firebase Hosting
+# Cấu hình GitHub deploy Firebase Hosting
 
-Lỗi `Input required and not supplied: firebaseServiceAccount` nghĩa là repo **chưa có** secret `FIREBASE_SERVICE_ACCOUNT`.
+## Cảnh báo bảo mật
 
-**Firebase Web Config** (`apiKey`, `projectId`, `appId`…) dùng trong app — **không** thay thế được service account.
+**Không gửi file JSON service account** qua chat, email, hoặc commit lên Git. Nếu private key đã lộ, hãy:
 
----
-
-## Cách 1 — `FIREBASE_SERVICE_ACCOUNT` (khuyên dùng)
-
-### Bước 1: Tạo service account
-
-1. Mở [Firebase Console](https://console.firebase.google.com/) → project **my-social-9bc6a**
-2. **Project settings** (bánh răng) → tab **Service accounts**
-3. **Generate new private key** → tải file `.json`
-
-### Bước 2: Thêm secret trên GitHub
-
-1. Repo GitHub → **Settings** → **Secrets and variables** → **Actions**
-2. **New repository secret**
-3. **Name:** `FIREBASE_SERVICE_ACCOUNT` (đúng tên, viết hoa)
-4. **Secret:** mở file JSON vừa tải, **copy toàn bộ** (từ `{` đến `}`) và dán vào ô Secret
-5. **Add secret**
-
-### Bước 3: Chạy lại workflow
-
-- Push một commit lên `main`, hoặc
-- **Actions** → **Deploy to Firebase Hosting** → **Run workflow**
+1. [Google Cloud Console](https://console.cloud.google.com/) → IAM → Service Accounts  
+2. Chọn `firebase-adminsdk-...@my-social-9bc6a.iam.gserviceaccount.com`  
+3. **Keys** → xóa key bị lộ → **Add key** → tạo key mới  
+4. Cập nhật lại secret trên GitHub bằng file JSON mới  
 
 ---
 
-## Cách 2 — `FIREBASE_TOKEN` (thay thế)
+## Cấu hình GitHub Environment (khuyên dùng)
 
-Trên máy đã cài Firebase CLI và đăng nhập:
+### Bước 1 — Tạo environment
+
+1. Repo GitHub → **Settings** → **Environments**
+2. **New environment**
+3. **Name:** `production` (đúng chữ thường, khớp workflow)
+4. (Tùy chọn) **Deployment branches** → chỉ `main` / `master`
+5. **Save protection rules**
+
+### Bước 2 — Environment secrets (bắt buộc để deploy)
+
+Vào environment **production** → **Environment secrets** → **Add secret**:
+
+| Tên secret (Name) | Giá trị (Value) |
+|-------------------|-----------------|
+| **`FIREBASE_SERVICE_ACCOUNT`** | Dán **toàn bộ** nội dung file `.json` (một khối từ `{` đến `}`) |
+
+Chỉ cần **một** secret này cho deploy Hosting. Workflow đọc đúng tên `FIREBASE_SERVICE_ACCOUNT`.
+
+### Bước 3 — Environment variables (tùy chọn)
+
+Không bắt buộc — app đã có config mặc định trong code. Chỉ thêm nếu muốn override:
+
+| Tên variable | Ví dụ giá trị | Ghi chú |
+|--------------|--------------|---------|
+| `VITE_FIREBASE_PROJECT_ID` | `my-social-9bc6a` | Công khai |
+| `VITE_CLOUDINARY_CLOUD_NAME` | tên cloudinary | Upload ảnh |
+
+**Không** tách từng field JSON (`private_key`, `client_email`…) thành secret riêng — action Firebase cần **cả file JSON** trong `FIREBASE_SERVICE_ACCOUNT`.
+
+### Bước 4 — Ý nghĩa các field trong file JSON (tham khảo)
+
+| Field trong JSON | Dùng ở đâu |
+|------------------|------------|
+| `project_id` | `my-social-9bc6a` — khớp `.firebaserc` |
+| `client_email` | Service account (không nhập riêng trên GitHub) |
+| `private_key` | Nằm trong secret `FIREBASE_SERVICE_ACCOUNT` |
+| `type` | Phải là `service_account` |
+
+**Firebase Web Config** (apiKey, appId trong app) ≠ service account JSON.
+
+### Bước 5 — Chạy deploy
+
+Push lên `main` hoặc **Actions** → **Deploy to Firebase Hosting** → **Run workflow**.
+
+Job **deploy-hosting** dùng `environment: production` → đọc secrets từ environment đó.
+
+---
+
+## Cách thay thế: Repository secrets
+
+Nếu không dùng Environment:
+
+**Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+- Name: `FIREBASE_SERVICE_ACCOUNT`  
+- Value: toàn bộ JSON  
+
+---
+
+## Cách 2 — `FIREBASE_TOKEN`
 
 ```bash
 npx firebase login:ci
 ```
 
-Copy token hiển thị → GitHub secret tên **`FIREBASE_TOKEN`**.
+Secret name: `FIREBASE_TOKEN` (trong environment **production** hoặc repository secrets).
 
 ---
 
-## Deploy thủ công (không cần GitHub secret)
+## Deploy local
 
 ```bash
 npm ci
@@ -50,12 +91,4 @@ npx firebase login
 npx firebase deploy --only hosting --project my-social-9bc6a
 ```
 
-URL sau deploy: https://my-social-9bc6a.web.app
-
----
-
-## Kiểm tra secret đã đúng chưa
-
-- Tên secret: `FIREBASE_SERVICE_ACCOUNT` (không có khoảng trắng, không đổi tên)
-- Giá trị: JSON hợp lệ, có `"type": "service_account"`
-- Service account cần quyền deploy Hosting (role **Firebase Hosting Admin** hoặc **Firebase Admin** trên Google Cloud IAM)
+URL: https://my-social-9bc6a.web.app
