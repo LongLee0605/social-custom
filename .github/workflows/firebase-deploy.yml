@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,10 +44,61 @@ jobs:
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
-      - name: Deploy to Firebase Hosting
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
+
+  deploy-hosting:
+    needs: quality
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy to Firebase Hosting (service account)
+        if: secrets.FIREBASE_SERVICE_ACCOUNT != ''
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: my-social-9bc6a
+
+      - name: Install Firebase CLI
+        if: secrets.FIREBASE_SERVICE_ACCOUNT == '' && secrets.FIREBASE_TOKEN != ''
+        run: npm ci --include=optional
+
+      - name: Deploy to Firebase Hosting (CI token)
+        if: secrets.FIREBASE_SERVICE_ACCOUNT == '' && secrets.FIREBASE_TOKEN != ''
+        run: npx firebase deploy --only hosting --project my-social-9bc6a --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Hướng dẫn cấu hình secret (chưa deploy)
+        if: secrets.FIREBASE_SERVICE_ACCOUNT == '' && secrets.FIREBASE_TOKEN == ''
+        run: |
+          echo "::error::Chưa cấu hình deploy Firebase trên GitHub."
+          echo ""
+          echo "Thêm MỘT trong hai secret tại: Settings → Secrets and variables → Actions"
+          echo ""
+          echo "Cách 1 (khuyên dùng): FIREBASE_SERVICE_ACCOUNT"
+          echo "  - Firebase Console → Project settings → Service accounts"
+          echo "  - Generate new private key → copy TOÀN BỘ nội dung file JSON"
+          echo "  - GitHub secret name: FIREBASE_SERVICE_ACCOUNT"
+          echo ""
+          echo "Cách 2: FIREBASE_TOKEN"
+          echo "  - Máy local: npx firebase login:ci"
+          echo "  - Copy token → GitHub secret: FIREBASE_TOKEN"
+          echo ""
+          echo "Chi tiết: docs/FIREBASE_CI_SETUP.md"
+          exit 1
