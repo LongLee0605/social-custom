@@ -6,6 +6,11 @@ on:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      deploy_firestore:
+        description: Deploy Firestore rules & indexes (cần IAM đủ quyền)
+        type: boolean
+        default: true
 
 concurrency:
   group: firebase-${{ github.ref }}
@@ -97,20 +102,33 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
+      - name: Deploy Hosting
+        id: hosting
+        run: |
+          npx firebase deploy \
+            --only hosting \
+            --project "${{ env.FIREBASE_PROJECT }}" \
+            --non-interactive
+
       - name: Deploy Firestore rules & indexes
+        id: firestore
+        if: github.event_name != 'workflow_dispatch' || inputs.deploy_firestore != false
+        continue-on-error: true
         run: |
           npx firebase deploy \
             --only firestore:rules,firestore:indexes \
             --project "${{ env.FIREBASE_PROJECT }}" \
             --non-interactive
 
-      - name: Deploy Hosting
+      - name: Firestore deploy hint (on 403)
+        if: steps.firestore.outcome == 'failure'
         run: |
-          npx firebase deploy \
-            --only hosting \
-            --project "${{ env.FIREBASE_PROJECT }}" \
-            --non-interactive
+          echo "::warning::Firestore deploy failed (often IAM 403). Hosting đã deploy."
+          echo "Thêm role cho service account: roles/firebase.admin"
+          echo "Xem: docs/FIREBASE_CI_SETUP.md#sửa-lỗi-403-firestore-rules"
+
       - name: Deployment URL
+        if: steps.hosting.outcome == 'success'
         run: |
           echo "Live: https://${{ env.FIREBASE_PROJECT }}.web.app"
           echo "Live: https://${{ env.FIREBASE_PROJECT }}.firebaseapp.com"

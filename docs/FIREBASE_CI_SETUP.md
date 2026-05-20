@@ -36,12 +36,36 @@ Lấy file JSON:
 
 **Không** dùng Firebase Web Config (`apiKey`, `appId`) thay cho JSON này.
 
-### Quyền service account (Google Cloud IAM)
+### Quyền service account (Google Cloud IAM) — bắt buộc nếu deploy Firestore
 
-Account `firebase-adminsdk-...@my-social-9bc6a.iam.gserviceaccount.com` cần một trong:
+Lỗi `403 The caller does not have permission` trên `firebaserules.googleapis.com` = service account **chỉ đủ Hosting**, chưa đủ Rules/Firestore.
 
-- **Firebase Admin**
-- hoặc **Firebase Hosting Admin** + quyền deploy Firestore rules
+#### Sửa lỗi 403 Firestore rules
+
+1. Mở [Google Cloud IAM](https://console.cloud.google.com/iam-admin/iam?project=my-social-9bc6a)
+2. Tìm email: `firebase-adminsdk-fbsvc@my-social-9bc6a.iam.gserviceaccount.com`
+3. **Edit principal** (biểu tượng bút) → **Add another role**
+4. Thêm role (chọn **một** cách):
+
+**Cách A — đơn giản nhất (khuyên dùng):**
+
+| Role | ID |
+|------|-----|
+| **Firebase Admin** | `Firebase Admin` / `roles/firebase.admin` |
+
+**Cách B — tối thiểu từng phần:**
+
+| Role | Dùng cho |
+|------|----------|
+| Firebase Hosting Admin | Deploy web app |
+| Firebase Rules Admin | `firestore.rules` |
+| Cloud Datastore Index Admin | `firestore.indexes.json` |
+
+5. **Save** → đợi 1–2 phút → chạy lại workflow
+
+6. (Tùy chọn) [Firebase Console](https://console.firebase.google.com/) → **Project settings** → **Users and permissions** → **Add member** → dán email service account → role **Editor**
+
+> Workflow vẫn **deploy Hosting trước**; Firestore deploy lỗi 403 không chặn site live (`continue-on-error`).
 
 ---
 
@@ -88,6 +112,7 @@ Job `deploy-firebase` vẫn dùng `environment: production` — secret trên env
 | `Could not spawn java` (local) | Cài Java 17+ cho `npm run test:rules` |
 | `rollup-linux-x64-gnu` | Chạy `npm ci --include=optional` |
 | Deploy OK nhưng app trắng | Kiểm tra `dist/index.html` tồn tại sau build |
+| `403` firebaserules.googleapis.com | Thêm **Firebase Admin** cho service account (xem trên) |
 
 ---
 
