@@ -110,22 +110,32 @@ jobs:
             --project "${{ env.FIREBASE_PROJECT }}" \
             --non-interactive
 
-      - name: Deploy Firestore rules & indexes
-        id: firestore
+      - name: Deploy Firestore rules
+        id: firestore-rules
         if: github.event_name != 'workflow_dispatch' || inputs.deploy_firestore != false
         continue-on-error: true
         run: |
           npx firebase deploy \
-            --only firestore:rules,firestore:indexes \
+            --only firestore:rules \
             --project "${{ env.FIREBASE_PROJECT }}" \
             --non-interactive
 
-      - name: Firestore deploy hint (on 403)
-        if: steps.firestore.outcome == 'failure'
+      - name: Deploy Firestore indexes
+        id: firestore-indexes
+        if: github.event_name != 'workflow_dispatch' || inputs.deploy_firestore != false
+        continue-on-error: true
         run: |
-          echo "::warning::Firestore deploy failed (often IAM 403). Hosting đã deploy."
-          echo "Thêm role cho service account: roles/firebase.admin"
-          echo "Xem: docs/FIREBASE_CI_SETUP.md#sửa-lỗi-403-firestore-rules"
+          npx firebase deploy \
+            --only firestore:indexes \
+            --project "${{ env.FIREBASE_PROJECT }}" \
+            --non-interactive
+
+      - name: Firestore deploy hint
+        if: steps.firestore-rules.outcome == 'failure' || steps.firestore-indexes.outcome == 'failure'
+        run: |
+          echo "::warning::Firestore deploy failed. Hosting đã deploy."
+          echo "403: thêm role Firebase Admin — docs/FIREBASE_CI_SETUP.md"
+          echo "400 index: đã bỏ index thừa trong firestore.indexes.json"
 
       - name: Deployment URL
         if: steps.hosting.outcome == 'success'
