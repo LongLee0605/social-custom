@@ -1,16 +1,17 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import { Search, MessageCircle, Plus } from 'lucide-react'
+import { Search, MessageCircle, Plus, PenSquare } from 'lucide-react'
 import { useChats } from '../hooks/useChats'
 import { useAuth } from '../contexts/AuthContext'
 import ChatWindow from '../components/chat/ChatWindow'
 import NewChatModal from '../components/chat/NewChatModal'
 import ChatListItem from '../components/chat/ChatListItem'
 import { getOrCreateChat } from '../services/chatService'
+import { cn } from '@/lib/cn'
 
 const ChatPage = () => {
   const { chats, loading } = useChats()
@@ -19,7 +20,6 @@ const ChatPage = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [showNewChatModal, setShowNewChatModal] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
   const hasOpenedChatRef = useRef(false)
   const openingChatRef = useRef(false)
   const isManualSelectionRef = useRef(false)
@@ -48,7 +48,7 @@ const ChatPage = () => {
                       const userData = userDoc.data()
                       setSelectedChat({
                         id: result.chatId,
-                        userId: userId,
+                        userId,
                         userName: userData.displayName || 'Người dùng',
                         userPhotoURL: userData.photoURL || null,
                         isOnline: userData.isOnline || false,
@@ -56,11 +56,10 @@ const ChatPage = () => {
                         unreadCount: 0,
                       })
                       setSearchParams({})
-                      openingChatRef.current = false
                     }
+                    openingChatRef.current = false
                   })
-                  .catch((error) => {
-                    console.error('Error fetching user:', error)
+                  .catch(() => {
                     openingChatRef.current = false
                   })
               }
@@ -83,127 +82,131 @@ const ChatPage = () => {
   }, [searchParams, currentUser, chats, setSearchParams])
 
   useEffect(() => {
-    if (isManualSelectionRef.current || !selectedChat?.id) {
-      return
-    }
+    if (isManualSelectionRef.current || !selectedChat?.id) return
 
     const updatedChat = chats.find((c) => c.id === selectedChat.id)
-    if (updatedChat) {
-      const hasChanges =
-        updatedChat.lastMessage !== selectedChat.lastMessage ||
-        updatedChat.unreadCount !== selectedChat.unreadCount ||
-        updatedChat.isOnline !== selectedChat.isOnline ||
-        updatedChat.userName !== selectedChat.userName ||
-        updatedChat.userPhotoURL !== selectedChat.userPhotoURL
+    if (!updatedChat) return
 
-      if (hasChanges) {
-        setSelectedChat(prev => {
-          if (prev?.id === updatedChat.id && !isManualSelectionRef.current) {
-            return { ...prev, ...updatedChat }
-          }
-          return prev
-        })
-      }
+    const hasChanges =
+      updatedChat.lastMessage !== selectedChat.lastMessage ||
+      updatedChat.unreadCount !== selectedChat.unreadCount ||
+      updatedChat.isOnline !== selectedChat.isOnline ||
+      updatedChat.userName !== selectedChat.userName ||
+      updatedChat.userPhotoURL !== selectedChat.userPhotoURL
+
+    if (hasChanges) {
+      setSelectedChat((prev) => {
+        if (prev?.id === updatedChat.id && !isManualSelectionRef.current) {
+          return { ...prev, ...updatedChat }
+        }
+        return prev
+      })
     }
   }, [chats])
 
   const filteredChats = useMemo(() => {
     if (!searchQuery.trim()) return chats
-    const query = searchQuery.toLowerCase()
-    return chats.filter((chat) => chat.userName.toLowerCase().includes(query))
+    const q = searchQuery.toLowerCase()
+    return chats.filter((chat) => chat.userName?.toLowerCase().includes(q))
   }, [chats, searchQuery])
 
-  const handleNewChat = useCallback(() => {
-    setShowNewChatModal(true)
-  }, [])
-
-  const handleCloseNewChat = useCallback(() => {
-    setShowNewChatModal(false)
-  }, [])
-
-  const handleChatSelected = useCallback((chatId, user) => {
-    isManualSelectionRef.current = true
-
-    setSelectedChat({
-      id: chatId,
-      userId: user.uid,
-      userName: user.displayName,
-      userPhotoURL: user.photoURL,
-      isOnline: user.isOnline || false,
-      lastMessage: '',
-      unreadCount: 0,
-    })
-
-    setSearchParams({})
-
-    setTimeout(() => {
-      isManualSelectionRef.current = false
-    }, 500)
-  }, [setSearchParams])
-
-  const handleSelectChat = useCallback((chat) => {
-    if (!chat?.id) return
-
-    isManualSelectionRef.current = true
-
-    setSelectedChat({
-      id: chat.id,
-      userId: chat.userId,
-      userName: chat.userName,
-      userPhotoURL: chat.userPhotoURL,
-      isOnline: chat.isOnline,
-      lastMessage: chat.lastMessage || '',
-      unreadCount: chat.unreadCount || 0,
-      updatedAt: chat.updatedAt,
-    })
-
-    if (searchParams.get('userId')) {
+  const handleChatSelected = useCallback(
+    (chatId, user) => {
+      isManualSelectionRef.current = true
+      setSelectedChat({
+        id: chatId,
+        userId: user.uid,
+        userName: user.displayName,
+        userPhotoURL: user.photoURL,
+        isOnline: user.isOnline || false,
+        lastMessage: '',
+        unreadCount: 0,
+      })
       setSearchParams({})
-    }
+      setTimeout(() => {
+        isManualSelectionRef.current = false
+      }, 500)
+    },
+    [setSearchParams]
+  )
 
-    setTimeout(() => {
-      isManualSelectionRef.current = false
-    }, 3000)
-  }, [searchParams, setSearchParams])
+  const handleSelectChat = useCallback(
+    (chat) => {
+      if (!chat?.id) return
+      isManualSelectionRef.current = true
+      setSelectedChat({
+        id: chat.id,
+        userId: chat.userId,
+        userName: chat.userName,
+        userPhotoURL: chat.userPhotoURL,
+        isOnline: chat.isOnline,
+        lastMessage: chat.lastMessage || '',
+        unreadCount: chat.unreadCount || 0,
+        updatedAt: chat.updatedAt,
+      })
+      if (searchParams.get('userId')) setSearchParams({})
+      setTimeout(() => {
+        isManualSelectionRef.current = false
+      }, 3000)
+    },
+    [searchParams, setSearchParams]
+  )
+
+  const mobileChatOpen = Boolean(selectedChat?.id)
 
   return (
-    <div className="max-w-7xl mx-auto w-full">
-      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 ${selectedChat?.id ? 'h-[calc(100vh-10rem)] lg:h-[100vh-20rem]' : 'h-[calc(100vh-8rem)] sm:h-[calc(100vh-10rem)] lg:h-[calc(100vh-12rem)]'}`}>
-        <div className={`lg:col-span-1 ${selectedChat?.id ? 'hidden lg:block' : 'block'}`}>
-          <Card className="h-full flex flex-col">
-            <div className="p-3 sm:p-4 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Tin nhắn</h2>
+    <div className="mx-auto w-full max-w-7xl page-stack">
+      <div
+        className={cn(
+          'grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 lg:h-[calc(100dvh-var(--layout-header)-4.5rem)]',
+          mobileChatOpen && 'max-lg:gap-0'
+        )}
+      >
+        <div className={cn('lg:col-span-1', mobileChatOpen ? 'hidden lg:block' : 'block')}>
+          <Card className="flex flex-col lg:h-full max-lg:min-h-[min(60dvh,520px)]">
+            <div className="border-b border-surface-border p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900 sm:text-xl">Tin nhắn</h2>
                 <button
-                  onClick={handleNewChat}
-                  className="p-1.5 sm:p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+                  type="button"
+                  onClick={() => setShowNewChatModal(true)}
+                  className="rounded-full p-2 text-slate-500 transition-colors hover:bg-brand-50 hover:text-brand-600"
                   title="Tin nhắn mới"
                 >
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Plus className="h-5 w-5" />
                 </button>
               </div>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 sm:h-5 sm:w-5" />
                 <input
-                  type="text"
-                  placeholder="Tìm kiếm..."
+                  type="search"
+                  placeholder="Tìm cuộc trò chuyện..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 text-sm sm:text-base bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
+                  className="input-modern w-full pl-9 text-sm sm:pl-10 sm:text-base"
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-modern">
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-custom">
               {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <div className="py-12 text-center">
+                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-600" />
                 </div>
               ) : filteredChats.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 text-sm sm:text-base px-4">
-                  {searchQuery ? 'Không tìm thấy cuộc trò chuyện' : 'Chưa có tin nhắn nào'}
+                <div className="px-4 py-12 text-center">
+                  <MessageCircle className="mx-auto mb-3 h-12 w-12 text-slate-200" />
+                  <p className="text-sm text-slate-500">
+                    {searchQuery ? 'Không tìm thấy cuộc trò chuyện' : 'Chưa có tin nhắn nào'}
+                  </p>
+                  {!searchQuery && (
+                    <Button variant="primary" size="sm" className="mt-4" onClick={() => setShowNewChatModal(true)}>
+                      <PenSquare className="mr-2 h-4 w-4" />
+                      Bắt đầu trò chuyện
+                    </Button>
+                  )}
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
+                <div className="divide-y divide-surface-border">
                   {filteredChats.map((chat) => (
                     <ChatListItem
                       key={chat.id}
@@ -218,27 +221,43 @@ const ChatPage = () => {
           </Card>
         </div>
 
-        <div className={`lg:col-span-2 h-full ${selectedChat?.id ? 'block' : 'hidden lg:block'}`}>
+        <div
+          className={cn(
+            'lg:col-span-2 lg:h-full lg:min-h-0',
+            mobileChatOpen
+              ? cn(
+                  'max-lg:fixed max-lg:inset-x-0 max-lg:z-30 max-lg:flex max-lg:flex-col max-lg:bg-white',
+                  'max-lg:top-[var(--layout-header)]',
+                  'max-lg:bottom-[calc(var(--layout-mobile-nav)+env(safe-area-inset-bottom,0px))]'
+                )
+              : 'hidden lg:block'
+          )}
+        >
           {selectedChat?.id ? (
-            <div className="h-full flex flex-col lg:h-auto">
-              <div className="lg:hidden mb-4 flex-shrink-0">
+            <>
+              <div className="my-3 flex shrink-0 items-center gap-2 lg:hidden">
                 <button
+                  type="button"
                   onClick={() => setSelectedChat(null)}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
                 >
-                  <span className="text-xl">←</span>
-                  <span className="font-medium">Quay lại</span>
+                  <span className="text-lg leading-none">←</span>
+                  Danh sách
                 </button>
               </div>
-              <div className="flex-1 min-h-0 lg:flex-none lg:h-[calc(100vh-10rem)] mobile-zoom">
+              <div className="min-h-0 flex-1 lg:h-full">
                 <ChatWindow key={selectedChat.id} chat={selectedChat} />
               </div>
-            </div>
+            </>
           ) : (
-            <Card className="h-full flex items-center justify-center">
-              <div className="text-center text-gray-500 px-4">
-                <MessageCircle className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-sm sm:text-base">Chọn một cuộc trò chuyện để bắt đầu</p>
+            <Card className="flex h-full min-h-[min(50dvh,400px)] items-center justify-center">
+              <div className="px-4 text-center">
+                <MessageCircle className="mx-auto mb-4 h-14 w-14 text-slate-200" />
+                <p className="font-medium text-slate-700">Chọn một cuộc trò chuyện</p>
+                <p className="mt-1 text-sm text-slate-500">Hoặc bắt đầu tin nhắn mới</p>
+                <Button variant="outline" size="sm" className="mt-4" onClick={() => setShowNewChatModal(true)}>
+                  Tin nhắn mới
+                </Button>
               </div>
             </Card>
           )}
@@ -247,7 +266,7 @@ const ChatPage = () => {
 
       <NewChatModal
         isOpen={showNewChatModal}
-        onClose={handleCloseNewChat}
+        onClose={() => setShowNewChatModal(false)}
         onChatSelected={handleChatSelected}
       />
     </div>
@@ -255,4 +274,3 @@ const ChatPage = () => {
 }
 
 export default ChatPage
-

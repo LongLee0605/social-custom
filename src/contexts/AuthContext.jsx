@@ -1,18 +1,15 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import {
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-} from 'firebase/auth'
-import { auth, googleProvider } from '../config/firebase'
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth'
+import { auth, googleProvider } from '@/lib/firebase'
+import { getUser, upsertUser, updateUser } from '@/repositories/usersRepository'
+import { normalizeDisplayName } from '@/lib/constants'
+import { serverTimestamp } from 'firebase/firestore'
 
-const AuthContext = createContext({})
+const AuthContext = createContext(null)
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
-  if (!context) {
+  if (context === null) {
     throw new Error('useAuth must be used within AuthProvider')
   }
   return context
@@ -22,24 +19,41 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [profileError, setProfileError] = useState(null)
+  const currentUserRef = useRef(null)
+
+  useEffect(() => {
+    currentUserRef.current = currentUser
+  }, [currentUser])
+
+  const fetchUserProfile = async (uid) => {
+    try {
+      const data = await getUser(uid)
+      if (data) {
+        setUserProfile(data)
+        setProfileError(null)
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+      setProfileError(error.message)
+    }
+  }
 
   const signInWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider)
       const user = result.user
-
       if (!user) {
         return { success: false, error: 'Không thể lấy thông tin người dùng' }
       }
 
       try {
-        const userDocRef = doc(db, 'users', user.uid)
-        const userDoc = await getDoc(userDocRef)
-
-        if (!userDoc.exists()) {
-          await setDoc(userDocRef, {
+        const existing = await getUser(user.uid)
+        if (!existing) {
+          await upsertUser(user.uid, {
             uid: user.uid,
             displayName: user.displayName || 'Người dùng',
+            displayNameLower: normalizeDisplayName(user.displayName),
             email: user.email || '',
             photoURL: user.photoURL || '',
             createdAt: new Date().toISOString(),
@@ -48,28 +62,23 @@ export const AuthProvider = ({ children }) => {
             following: [],
             posts: [],
           })
-        } else {
-          const existingData = userDoc.data()
-          if (!existingData.photoURL && user.photoURL) {
-            await updateDoc(userDocRef, {
-              photoURL: user.photoURL,
-            })
-          }
+        } else if (!existing.photoURL && user.photoURL) {
+          await updateUser(user.uid, { photoURL: user.photoURL })
         }
 
         await fetchUserProfile(user.uid)
-
         return { success: true }
       } catch (dbError) {
         console.error('Error with Firestore:', dbError)
-        return { 
-          success: true, 
-          warning: 'Đăng nhập thành công nhưng không thể kết nối với database. Vui lòng kiểm tra cấu hình Firestore.' 
+        return {
+          success: false,
+          error:
+            'Đăng nhập thành công nhưng không thể đồng bộ hồ sơ. Vui lòng thử lại.',
+          retry: true,
         }
       }
     } catch (error) {
       console.error('Error signing in with Google:', error)
-      
       let errorMessage = 'Có lỗi xảy ra khi đăng nhập'
       if (error.code === 'auth/popup-closed-by-user') {
         errorMessage = 'Bạn đã đóng cửa sổ đăng nhập'
@@ -80,7 +89,6 @@ export const AuthProvider = ({ children }) => {
       } else if (error.message) {
         errorMessage = error.message
       }
-      
       return { success: false, error: errorMessage }
     }
   }
@@ -96,51 +104,36 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const fetchUserProfile = async (uid) => {
-    try {
-      const userDocRef = doc(db, 'users', uid)
-      const userDoc = await getDoc(userDocRef)
-      
-      if (userDoc.exists()) {
-        setUserProfile({ id: userDoc.id, ...userDoc.data() })
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error)
-    }
-  }
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
       if (user) {
         await fetchUserProfile(user.uid)
         try {
-          const userDocRef = doc(db, 'users', user.uid)
-          const userDoc = await getDoc(userDocRef)
-          if (userDoc.exists()) {
-            const existingData = userDoc.data()
-            const updateData = {
-              isOnline: true,
-              lastSeen: serverTimestamp(),
-            }
-            if (!existingData.photoURL && user.photoURL) {
-              updateData.photoURL = user.photoURL
-            }
-            await updateDoc(userDocRef, updateData)
-          } else {
-            await setDoc(userDocRef, {
+          const existing = await getUser(user.uid)
+          const updateData = {
+            isOnline: true,
+            lastSeen: serverTimestamp(),
+          }
+          if (!existing) {
+            await upsertUser(user.uid, {
               uid: user.uid,
               displayName: user.displayName || 'Người dùng',
+              displayNameLower: normalizeDisplayName(user.displayName),
               email: user.email || '',
               photoURL: user.photoURL || '',
-              createdAt: serverTimestamp(),
               bio: '',
               followers: [],
               following: [],
               posts: [],
               isOnline: true,
               lastSeen: serverTimestamp(),
-            }, { merge: true })
+            })
+          } else {
+            if (!existing.photoURL && user.photoURL) {
+              updateData.photoURL = user.photoURL
+            }
+            await updateUser(user.uid, updateData)
           }
         } catch (error) {
           console.error('Error setting online status:', error)
@@ -151,21 +144,21 @@ export const AuthProvider = ({ children }) => {
       setLoading(false)
     })
 
-    const handleBeforeUnload = async () => {
-      if (currentUser) {
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid)
-          const userDoc = await getDoc(userDocRef)
-          if (userDoc.exists()) {
-            await updateDoc(userDocRef, {
-              isOnline: false,
-              lastSeen: serverTimestamp(),
-            })
-          }
-        } catch (error) {
-          console.error('Error setting offline status:', error)
-        }
+    const setOffline = async (uid) => {
+      if (!uid) return
+      try {
+        await updateUser(uid, {
+          isOnline: false,
+          lastSeen: serverTimestamp(),
+        })
+      } catch (error) {
+        console.error('Error setting offline status:', error)
       }
+    }
+
+    const handleBeforeUnload = () => {
+      const uid = currentUserRef.current?.uid
+      if (uid) setOffline(uid)
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -173,37 +166,20 @@ export const AuthProvider = ({ children }) => {
     return () => {
       unsubscribe()
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid)
-        getDoc(userDocRef).then((userDoc) => {
-          if (userDoc.exists()) {
-            updateDoc(userDocRef, {
-              isOnline: false,
-              lastSeen: serverTimestamp(),
-            }).catch((error) => {
-              console.error('Error setting offline status:', error)
-            })
-          }
-        }).catch((error) => {
-          console.error('Error in cleanup:', error)
-        })
-      }
+      const uid = currentUserRef.current?.uid
+      if (uid) setOffline(uid)
     }
-  }, [currentUser])
+  }, [])
 
   const value = {
     currentUser,
     userProfile,
+    profileError,
     signInWithGoogle,
     logout,
     loading,
     fetchUserProfile,
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-

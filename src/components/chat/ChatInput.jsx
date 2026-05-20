@@ -2,24 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Image as ImageIcon, Paperclip, Smile, X } from 'lucide-react'
 import Button from '../ui/Button'
 import AlertModal from '../ui/AlertModal'
+import EmojiPickerModal from '../ui/EmojiPickerModal'
 import { uploadImage, uploadFile } from '../../services/imageUpload'
-
-const EMOJI_LIST = [
-  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
-  '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰',
-  '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜',
-  '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏',
-  '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
-  '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠',
-  '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨',
-  '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥',
-  '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧',
-  '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
-  '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑',
-  '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻',
-  '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸',
-  '😹', '😻', '😼', '😽', '🙀', '😿', '😾'
-]
+import { validateImageFile, validateChatFile, sanitizeFileName } from '@/lib/validation'
+import { MESSAGE_EMOJIS } from '@/lib/emojis'
+import { cn } from '@/lib/cn'
 
 const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false }) => {
   const [messageText, setMessageText] = useState('')
@@ -32,25 +19,16 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
   const fileInputRef = useRef(null)
   const imageInputRef = useRef(null)
   const textareaRef = useRef(null)
-  const typingTimeoutRef = useRef(null)
 
   useEffect(() => {
-    if (textareaRef.current) {
-      // Reset height để tính toán chính xác scrollHeight
-      textareaRef.current.style.height = 'auto'
-      
-      // Lấy scrollHeight (chiều cao thực tế của nội dung)
-      const scrollHeight = textareaRef.current.scrollHeight
-      const minHeight = 36 // Chiều cao tối thiểu (tương đương 1 dòng)
-      const maxHeight = 120 // Chiều cao tối đa (tương đương ~5-6 dòng)
-      
-      // Đặt chiều cao dựa trên nội dung, nhưng không vượt quá maxHeight
-      const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight))
-      textareaRef.current.style.height = `${newHeight}px`
-      
-      // Luôn ẩn scroll
-      textareaRef.current.style.overflowY = 'hidden'
-    }
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const scrollHeight = el.scrollHeight
+    const minHeight = 40
+    const maxHeight = 120
+    el.style.height = `${Math.max(minHeight, Math.min(scrollHeight, maxHeight))}px`
+    el.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden'
   }, [messageText])
 
   const handleSend = async (e) => {
@@ -81,37 +59,22 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
 
   const handleSendImage = async () => {
     if (!selectedImage || disabled || uploading) return
-
     if (!onSendImage) {
-      setAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Lỗi',
-        message: 'Chức năng gửi ảnh chưa được cấu hình.',
-      })
+      setAlert({ isOpen: true, type: 'error', title: 'Lỗi', message: 'Chức năng gửi ảnh chưa được cấu hình.' })
       return
     }
 
     try {
       setUploading(true)
-      const maxSize = 10 * 1024 * 1024
-      if (selectedImage.size > maxSize) {
-        setAlert({
-          isOpen: true,
-          type: 'error',
-          title: 'Lỗi',
-          message: 'Kích thước ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 10MB',
-        })
-        setUploading(false)
+      const validation = validateImageFile(selectedImage)
+      if (!validation.valid) {
+        setAlert({ isOpen: true, type: 'error', title: 'Lỗi', message: validation.error })
         return
       }
 
-      const imagePath = `chat-images/${Date.now()}_${selectedImage.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+      const imagePath = `chat-images/${Date.now()}_${sanitizeFileName(selectedImage.name)}`
       const imageURL = await uploadImage(selectedImage, imagePath)
-      
-      if (!imageURL) {
-        throw new Error('Không nhận được URL ảnh sau khi upload')
-      }
+      if (!imageURL) throw new Error('Không nhận được URL ảnh sau khi upload')
 
       await onSendImage(imageURL, selectedImage.name)
       setSelectedImage(null)
@@ -122,7 +85,7 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
         isOpen: true,
         type: 'error',
         title: 'Lỗi upload ảnh',
-        message: error.message || 'Lỗi khi upload ảnh. Vui lòng kiểm tra cấu hình Cloudinary và thử lại.',
+        message: error.message || 'Lỗi khi upload ảnh. Vui lòng thử lại.',
       })
     } finally {
       setUploading(false)
@@ -134,19 +97,13 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
 
     try {
       setUploading(true)
-      const maxSize = 50 * 1024 * 1024
-      if (selectedFile.size > maxSize) {
-        setAlert({
-          isOpen: true,
-          type: 'error',
-          title: 'Lỗi',
-          message: 'Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 50MB',
-        })
-        setUploading(false)
+      const validation = validateChatFile(selectedFile)
+      if (!validation.valid) {
+        setAlert({ isOpen: true, type: 'error', title: 'Lỗi', message: validation.error })
         return
       }
 
-      const filePath = `chat-files/${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+      const filePath = `chat-files/${Date.now()}_${sanitizeFileName(selectedFile.name)}`
       const fileURL = await uploadFile(selectedFile, filePath)
       await onSendFile(fileURL, selectedFile.name, selectedFile.size)
       setSelectedFile(null)
@@ -169,33 +126,21 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
 
     const maxSize = 10 * 1024 * 1024
     if (file.size > maxSize) {
-      setAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Lỗi',
-        message: 'Kích thước ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 10MB',
-      })
+      setAlert({ isOpen: true, type: 'error', title: 'Lỗi', message: 'Ảnh tối đa 10MB' })
       e.target.value = ''
       return
     }
 
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
     if (!allowedTypes.includes(file.type)) {
-      setAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Lỗi',
-        message: 'Định dạng ảnh không được hỗ trợ. Vui lòng chọn ảnh JPG, PNG, GIF hoặc WebP',
-      })
+      setAlert({ isOpen: true, type: 'error', title: 'Lỗi', message: 'Chỉ hỗ trợ JPG, PNG, GIF, WebP' })
       e.target.value = ''
       return
     }
 
     setSelectedImage(file)
     const reader = new FileReader()
-    reader.onloadend = () => {
-      setImagePreview(reader.result)
-    }
+    reader.onloadend = () => setImagePreview(reader.result)
     reader.readAsDataURL(file)
     e.target.value = ''
   }
@@ -204,14 +149,8 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
     const file = e.target.files[0]
     if (!file) return
 
-    const maxSize = 50 * 1024 * 1024
-    if (file.size > maxSize) {
-      setAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Lỗi',
-        message: 'Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 50MB',
-      })
+    if (file.size > 50 * 1024 * 1024) {
+      setAlert({ isOpen: true, type: 'error', title: 'Lỗi', message: 'File tối đa 50MB' })
       e.target.value = ''
       return
     }
@@ -222,161 +161,113 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
 
   const insertEmoji = (emoji) => {
     setMessageText((prev) => prev + emoji)
-    setShowEmojiPicker(false)
     textareaRef.current?.focus()
   }
 
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes'
+    if (!bytes) return '0 B'
     const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+    return `${Math.round((bytes / k ** i) * 100) / 100} ${sizes[i]}`
   }
 
+  const iconBtn = 'rounded-full p-2 text-slate-400 transition-colors hover:bg-brand-50 hover:text-brand-600 disabled:opacity-40'
+
   return (
-    <div className="border-t border-gray-200 bg-white">
+    <div className="shrink-0 border-t border-surface-border bg-white safe-bottom">
       {imagePreview && (
-        <div className="p-2 sm:p-3 border-b border-gray-200 relative">
-          <img
-            src={imagePreview}
-            alt="Preview"
-            className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg"
-          />
+        <div className="relative border-b border-surface-border p-3">
+          <img src={imagePreview} alt="Xem trước" className="h-24 w-24 rounded-xl object-cover sm:h-28 sm:w-28" />
           <button
+            type="button"
             onClick={() => {
               setImagePreview(null)
               setSelectedImage(null)
             }}
-            className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70"
+            className="absolute right-3 top-3 rounded-full bg-slate-900/60 p-1 text-white hover:bg-slate-900/80"
           >
-            <X className="w-3 h-3 sm:w-4 sm:h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {selectedFile && (
-        <div className="p-2 sm:p-3 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center space-x-2 min-w-0 flex-1">
-            <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
-              <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
+        <div className="flex items-center justify-between gap-2 border-b border-surface-border p-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Paperclip className="h-5 w-5 shrink-0 text-slate-400" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-slate-900">{selectedFile.name}</p>
+              <p className="text-xs text-slate-500">{formatFileSize(selectedFile.size)}</p>
             </div>
           </div>
-          <button
-            onClick={() => setSelectedFile(null)}
-            className="text-gray-400 hover:text-gray-600 flex-shrink-0 ml-2"
-          >
-            <X className="w-4 h-4 sm:w-5 sm:h-5" />
+          <button type="button" onClick={() => setSelectedFile(null)} className="text-slate-400 hover:text-slate-600">
+            <X className="h-5 w-5" />
           </button>
         </div>
       )}
 
-      {showEmojiPicker && (
-        <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 max-h-48 overflow-y-auto overflow-x-hidden scrollbar-thin">
-          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1 sm:gap-2 max-w-full">
-            {EMOJI_LIST.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => insertEmoji(emoji)}
-                className="text-xl sm:text-2xl hover:scale-125 transition-transform p-1 hover:bg-gray-200 rounded"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handleSend} className="p-2 sm:p-4">
-        <div className="flex items-center space-x-1 sm:space-x-2">
-          <div className="flex items-center space-x-0.5 sm:space-x-1 flex-shrink-0">
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageSelect}
-              className="hidden"
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => imageInputRef.current?.click()}
-              className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
-              disabled={disabled}
-              title="Gửi ảnh"
-            >
-              <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+      <form onSubmit={handleSend} className="p-2 sm:p-3">
+        <div className="flex items-end gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-0.5">
+            <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+            <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
+            <button type="button" onClick={() => imageInputRef.current?.click()} className={iconBtn} disabled={disabled} title="Gửi ảnh">
+              <ImageIcon className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
-              disabled={disabled}
-              title="Gửi file"
-            >
-              <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
+            <button type="button" onClick={() => fileInputRef.current?.click()} className={iconBtn} disabled={disabled} title="Gửi file">
+              <Paperclip className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
-              disabled={disabled}
-              title="Emoji"
-            >
-              <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
+            <button type="button" onClick={() => setShowEmojiPicker(true)} className={iconBtn} disabled={disabled} title="Emoji">
+              <Smile className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="flex flex-1 relative min-w-0">
-            <textarea
-              ref={textareaRef}
-              value={messageText}
-              onChange={(e) => {
-                const value = e.target.value
-                setMessageText(value)
-                if (onTyping) {
-                  onTyping(value)
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSend(e)
-                }
-              }}
-              placeholder="Nhập tin nhắn..."
-              rows={1}
-              className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none overflow-hidden"
-              style={{ 
-                minHeight: '36px',
-                maxHeight: '120px',
-                height: 'auto'
-              }}
-              disabled={disabled}
-            />
-          </div>
+          <textarea
+            ref={textareaRef}
+            value={messageText}
+            onChange={(e) => {
+              setMessageText(e.target.value)
+              onTyping?.(e.target.value)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSend(e)
+              }
+            }}
+            placeholder="Nhập tin nhắn..."
+            rows={1}
+            disabled={disabled}
+            className={cn(
+              'min-h-[40px] max-h-[120px] w-full flex-1 resize-none rounded-2xl border border-surface-border',
+              'px-4 py-2 text-[15px] text-slate-900 placeholder:text-slate-400',
+              'focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20'
+            )}
+          />
 
           <Button
             type="submit"
             variant="primary"
             disabled={(!messageText.trim() && !selectedImage && !selectedFile) || disabled || uploading}
-            className="rounded-full p-1.5 sm:p-2 flex-shrink-0"
+            className="shrink-0 rounded-full !p-2.5"
           >
             {uploading ? (
-              <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
             ) : (
-              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Send className="h-5 w-5" />
             )}
           </Button>
         </div>
       </form>
+
+      <EmojiPickerModal
+        isOpen={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        title="Chèn emoji"
+        emojis={MESSAGE_EMOJIS}
+        onSelect={insertEmoji}
+      />
 
       <AlertModal
         isOpen={alert.isOpen}
@@ -390,4 +281,3 @@ const ChatInput = ({ onSend, onSendImage, onSendFile, onTyping, disabled = false
 }
 
 export default ChatInput
-

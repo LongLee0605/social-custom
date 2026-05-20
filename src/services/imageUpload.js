@@ -1,4 +1,5 @@
-const UPLOAD_SERVICE = import.meta.env.VITE_UPLOAD_SERVICE || 'cloudinary'
+const _uploadService = import.meta.env.VITE_UPLOAD_SERVICE || 'cloudinary'
+void _uploadService
 
 const uploadToCloudinary = async (file, folder = 'posts', isFile = false) => {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME

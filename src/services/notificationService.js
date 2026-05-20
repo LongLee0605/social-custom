@@ -1,54 +1,41 @@
-import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
-import { db } from '../config/firebase'
+import { createNotificationRecord } from '@/repositories/notificationsRepository'
+import { NOTIFICATION_TYPES } from '@/lib/constants'
 
-export const createNotification = async ({ userId, type, title, message, link, relatedUserId, relatedPostId }) => {
+export const createNotification = async ({
+  userId,
+  type,
+  title,
+  message,
+  link,
+  relatedUserId,
+  relatedPostId,
+}) => {
   try {
     if (!userId) return { success: false, error: 'Missing userId' }
+    if (!NOTIFICATION_TYPES.includes(type)) {
+      return { success: false, error: 'Invalid notification type' }
+    }
 
-    // Không tạo thông báo cho chính mình
     const auth = getAuth()
     const currentUser = auth.currentUser
-    if (currentUser && userId === currentUser.uid) {
+    if (!currentUser) {
+      return { success: false, error: 'Not authenticated' }
+    }
+    if (userId === currentUser.uid) {
       return { success: false, error: 'Cannot create notification for yourself' }
     }
 
-    const userDoc = await getDoc(doc(db, 'users', userId))
-    if (!userDoc.exists()) {
-      return { success: false, error: 'User not found' }
-    }
-
-    let relatedUserName = null
-    let relatedUserPhotoURL = null
-
-    if (relatedUserId) {
-      try {
-        const relatedUserDoc = await getDoc(doc(db, 'users', relatedUserId))
-        if (relatedUserDoc.exists()) {
-          const relatedUserData = relatedUserDoc.data()
-          relatedUserName = relatedUserData.displayName || 'Người dùng'
-          relatedUserPhotoURL = relatedUserData.photoURL || null
-        }
-      } catch (error) {
-        console.error('Error fetching related user:', error)
-      }
-    }
-
-    const notificationData = {
+    await createNotificationRecord({
       userId,
+      actorId: currentUser.uid,
       type,
       title,
       message,
-      link: link || null,
-      relatedUserId: relatedUserId || null,
-      relatedUserName: relatedUserName || null,
-      relatedUserPhotoURL: relatedUserPhotoURL || null,
-      relatedPostId: relatedPostId || null,
-      read: false,
-      createdAt: serverTimestamp(),
-    }
-
-    await addDoc(collection(db, 'notifications'), notificationData)
+      link,
+      relatedUserId: relatedUserId || currentUser.uid,
+      relatedPostId,
+    })
 
     return { success: true }
   } catch (error) {
@@ -56,4 +43,3 @@ export const createNotification = async ({ userId, type, title, message, link, r
     return { success: false, error: error.message }
   }
 }
-

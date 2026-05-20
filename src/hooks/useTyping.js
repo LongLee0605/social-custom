@@ -25,7 +25,13 @@ export const useTyping = (chatId) => {
       }
     })
 
-    return unsubscribe
+    return () => {
+      unsubscribe()
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = null
+      }
+    }
   }, [chatId, currentUser])
 
   const setTyping = async (typing) => {

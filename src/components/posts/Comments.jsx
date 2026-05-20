@@ -9,6 +9,7 @@ import { formatRelativeTime } from '../../utils/formatDate'
 import { Trash2, Send, Reply } from 'lucide-react'
 import { useUserInfo } from '../../hooks/useUserInfo'
 import { linkifyText } from '../../utils/linkify'
+import { usePostComments } from '@/hooks/usePostComments'
 
 const CurrentUserAvatar = memo(() => {
   const { currentUser } = useAuth()
@@ -26,15 +27,11 @@ const CurrentUserAvatar = memo(() => {
 CurrentUserAvatar.displayName = 'CurrentUserAvatar'
 
 const CommentItem = memo(({ comment, currentUser, onDelete, onReact, onReply, replyToUser, level = 0 }) => {
-  const userInfo = useUserInfo(comment.userId)
+  const userInfo = useUserInfo(comment?.userId)
   const currentUserInfo = useUserInfo(currentUser?.uid)
   const [showReplyInput, setShowReplyInput] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [replying, setReplying] = useState(false)
-  
-  if (!comment.userId) {
-    return null
-  }
 
   const handleDelete = useCallback(() => {
     onDelete(comment.id)
@@ -74,6 +71,10 @@ const CommentItem = memo(({ comment, currentUser, onDelete, onReact, onReply, re
   }, [comment.text])
 
   const canReply = true
+
+  if (!comment?.userId) {
+    return null
+  }
 
   return (
     <div className={`${level > 0 ? 'ml-4 sm:ml-6 mt-2' : ''}`}>
@@ -215,7 +216,8 @@ const Comments = memo(({ post, onAddComment, onDeleteComment, onReactComment, on
   const [showAll, setShowAll] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null })
 
-  const comments = useMemo(() => post.comments || [], [post.comments])
+  const mergedComments = usePostComments(post.id, post.comments || [])
+  const comments = useMemo(() => mergedComments, [mergedComments])
   
   const organizedComments = useMemo(() => {
     const topLevel = comments.filter(c => !c.replyTo)

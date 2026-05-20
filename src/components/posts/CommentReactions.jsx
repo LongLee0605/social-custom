@@ -1,15 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Smile, Plus } from 'lucide-react'
-import Modal from '../ui/Modal'
-
-const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
-
-const ALL_EMOJIS = [
-  '👍', '❤️', '😂', '😮', '😢', '🙏', '😊', '😍', '🤔', '😎',
-  '😴', '😋', '😭', '😡', '🤗', '👏', '🔥', '💯', '🎉', '✨',
-  '⭐', '💪', '🙌', '👌', '👍', '👎', '💔', '💖', '💝', '🎁',
-  '🏆', '🥇', '🥈', '🥉', '🎯', '💎', '🌟', '💫', '⚡', '🌈'
-]
+import EmojiPickerModal from '../ui/EmojiPickerModal'
+import { QUICK_REACTIONS, EXTENDED_REACTIONS } from '@/lib/emojis'
 
 const CommentReactions = ({ reactions, onReact }) => {
   const [showPicker, setShowPicker] = useState(false)
@@ -74,7 +66,7 @@ const CommentReactions = ({ reactions, onReact }) => {
                   minWidth: 'fit-content'
                 }}
               >
-                {EMOJI_OPTIONS.map((emoji) => (
+                  {QUICK_REACTIONS.map((emoji) => (
                   <button
                     key={emoji}
                     onClick={() => {
@@ -101,33 +93,13 @@ const CommentReactions = ({ reactions, onReact }) => {
         )}
       </div>
       
-      {showEmojiModal && (
-        <Modal
-          isOpen={showEmojiModal}
-          onClose={() => setShowEmojiModal(false)}
-          title="Chọn biểu cảm"
-          size="md"
-        >
-          <div className="max-h-[400px] overflow-y-auto">
-            <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 p-2">
-              {ALL_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => {
-                    if (onReact) {
-                      onReact(emoji)
-                    }
-                    setShowEmojiModal(false)
-                  }}
-                  className="text-2xl sm:text-3xl hover:scale-125 transition-transform p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        </Modal>
-      )}
+      <EmojiPickerModal
+        isOpen={showEmojiModal}
+        onClose={() => setShowEmojiModal(false)}
+        title="Chọn biểu cảm"
+        emojis={EXTENDED_REACTIONS}
+        onSelect={(emoji) => onReact?.(emoji)}
+      />
     </>
   )
 }

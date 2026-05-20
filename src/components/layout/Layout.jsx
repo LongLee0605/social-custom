@@ -2,23 +2,28 @@ import { Outlet } from 'react-router-dom'
 import Header from './Header'
 import Sidebar from './Sidebar'
 import NotificationManager from '../notifications/NotificationManager'
+import PWAInstallBanner from '@/components/pwa/PWAInstallBanner'
+import { ChatsProvider } from '@/contexts/ChatsContext'
+import { NotificationsProvider } from '@/contexts/NotificationsContext'
 
-const Layout = () => {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <NotificationManager />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 lg:ml-64 w-full pb-16 lg:pb-0">
-          <div className="container-custom py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
-            <Outlet />
-          </div>
-        </main>
+const Layout = () => (
+  <ChatsProvider>
+    <NotificationsProvider>
+      <div className="app-shell flex min-h-dvh flex-col">
+        <Header />
+        <NotificationManager />
+        <div className="flex min-h-0 flex-1">
+          <Sidebar />
+          <main className="main-content lg:ml-60">
+            <div className="container-custom max-w-6xl py-4 sm:py-5 lg:py-6">
+              <Outlet />
+            </div>
+          </main>
+        </div>
+        <PWAInstallBanner />
       </div>
-    </div>
-  )
-}
+    </NotificationsProvider>
+  </ChatsProvider>
+)
 
 export default Layout
-

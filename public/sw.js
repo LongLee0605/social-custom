@@ -1,5 +1,5 @@
-// Service Worker cho PWA - Enhanced với offline support
-const CACHE_VERSION = 'v3'
+// Service Worker cho PWA - chỉ cache tài nguyên http(s) của app
+const CACHE_VERSION = 'v4'
 const STATIC_CACHE = `static-${CACHE_VERSION}`
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`
 const IMAGE_CACHE = `images-${CACHE_VERSION}`
@@ -18,13 +18,49 @@ const urlsToCache = [
   '/icons/icon-512x512.svg',
 ]
 
-// Install event - Cache resources
+/** Chỉ cache request same-origin hoặc http(s) — bỏ extension, blob, data, devtools */
+function isCacheableRequest(request) {
+  try {
+    const url = new URL(request.url)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return false
+    }
+    // Bỏ qua extension & devtools (phòng trường hợp origin lạ)
+    if (
+      url.protocol === 'chrome-extension:' ||
+      url.protocol === 'moz-extension:' ||
+      url.protocol === 'safari-extension:'
+    ) {
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+function shouldSkipProxy(url) {
+  return (
+    url.origin.includes('firebase') ||
+    url.origin.includes('googleapis') ||
+    url.origin.includes('gstatic') ||
+    url.origin.includes('cloudinary')
+  )
+}
+
+function safeCachePut(cache, request, response) {
+  if (!isCacheableRequest(request)) return Promise.resolve()
+  return cache.put(request, response).catch(() => {
+    // Không log — request không hỗ trợ Cache API (extension, opaque, v.v.)
+  })
+}
+
+// Install event
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then((cache) => {
-        return cache.addAll(urlsToCache)
-      })
+    caches
+      .open(STATIC_CACHE)
+      .then((cache) => cache.addAll(urlsToCache))
       .catch((error) => {
         console.error('[SW] Cache install error:', error)
       })
@@ -32,135 +68,112 @@ self.addEventListener('install', (event) => {
   self.skipWaiting()
 })
 
-// Activate event - Clean up old caches
+// Activate event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    caches.keys().then((cacheNames) =>
+      Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE && cacheName !== IMAGE_CACHE) {
+          if (
+            cacheName !== STATIC_CACHE &&
+            cacheName !== DYNAMIC_CACHE &&
+            cacheName !== IMAGE_CACHE
+          ) {
             return caches.delete(cacheName)
           }
         })
       )
-    })
+    )
   )
-  return self.clients.claim()
+  self.clients.claim()
 })
 
-// Fetch event - Enhanced caching strategy
+// Fetch event
 self.addEventListener('fetch', (event) => {
   const { request } = event
+
+  if (request.method !== 'GET') return
+  if (!isCacheableRequest(request)) return
+
   const url = new URL(request.url)
+  if (shouldSkipProxy(url)) return
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
-    return
-  }
-
-  // Skip Firebase và external APIs (không cache)
-  if (
-    url.origin.includes('firebase') ||
-    url.origin.includes('googleapis') ||
-    url.origin.includes('gstatic')
-  ) {
-    return
-  }
-
-  // Cache images separately
+  // Images
   if (request.destination === 'image') {
     event.respondWith(
-      caches.open(IMAGE_CACHE)
-        .then((cache) => {
-          return cache.match(request)
-            .then((cachedImage) => {
-              if (cachedImage) {
-                return cachedImage
+      caches.open(IMAGE_CACHE).then((cache) =>
+        cache.match(request).then((cachedImage) => {
+          if (cachedImage) return cachedImage
+          return fetch(request)
+            .then((response) => {
+              if (response && response.status === 200 && response.type === 'basic') {
+                safeCachePut(cache, request, response.clone())
               }
-              return fetch(request)
-                .then((response) => {
-                  if (response && response.status === 200) {
-                    cache.put(request, response.clone())
-                  }
-                  return response
-                })
-                .catch(() => {
-                  // Return placeholder image if offline
-                  return new Response('', { status: 404 })
-                })
+              return response
             })
+            .catch(() => new Response('', { status: 404 }))
         })
+      )
     )
     return
   }
 
-  // HTML và assets - Cache first với network fallback
+  // HTML & assets
   event.respondWith(
-    caches.match(request)
-      .then((cachedResponse) => {
-        // Return cached version if available
-        if (cachedResponse) {
-          return cachedResponse
-        }
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) return cachedResponse
 
-        // Fetch from network
-        return fetch(request)
-          .then((response) => {
-            // Don't cache non-successful responses
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response
-            }
+      return fetch(request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response
+          }
 
-            // Clone response for caching
-            const responseToCache = response.clone()
-
-            // Cache in appropriate cache
-            const cacheName = request.destination === 'document' || request.url.endsWith('.html')
+          const responseToCache = response.clone()
+          const cacheName =
+            request.destination === 'document' || request.url.endsWith('.html')
               ? STATIC_CACHE
               : DYNAMIC_CACHE
 
-            caches.open(cacheName)
-              .then((cache) => {
-                cache.put(request, responseToCache)
-              })
+          caches.open(cacheName).then((cache) => {
+            safeCachePut(cache, request, responseToCache)
+          })
 
-            return response
-          })
-          .catch(() => {
-            // Network failed - return offline page for HTML requests
-            if (request.headers.get('accept')?.includes('text/html')) {
-              return caches.match('/index.html')
-            }
-            // For other requests, return empty response
-            return new Response('', { status: 503, statusText: 'Service Unavailable' })
-          })
-      })
+          return response
+        })
+        .catch(() => {
+          if (request.headers.get('accept')?.includes('text/html')) {
+            return caches.match('/index.html')
+          }
+          return new Response('', { status: 503, statusText: 'Service Unavailable' })
+        })
+    })
   )
 })
 
-// Background Sync - Sync data when back online
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-data') {
-    event.waitUntil(syncData())
+    event.waitUntil(Promise.resolve())
   }
 })
 
-async function syncData() {
-  // Có thể thêm logic sync data khi online lại
-  return Promise.resolve()
-}
-
-// Message event - Communication với main thread
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting()
   }
-  if (event.data && event.data.type === 'CACHE_URLS') {
-    event.waitUntil(
-      caches.open(STATIC_CACHE).then((cache) => {
-        return cache.addAll(event.data.urls)
-      })
-    )
+  if (event.data?.type === 'CACHE_URLS' && Array.isArray(event.data.urls)) {
+    const httpUrls = event.data.urls.filter((u) => {
+      try {
+        const parsed = new URL(u, self.location.origin)
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      } catch {
+        return false
+      }
+    })
+    if (httpUrls.length > 0) {
+      event.waitUntil(
+        caches.open(STATIC_CACHE).then((cache) => cache.addAll(httpUrls))
+      )
+    }
   }
 })
-

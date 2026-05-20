@@ -14,7 +14,8 @@
 - ✅ Thông báo real-time (like, comment, follow, message, new post)
 - ✅ Reactions cho tin nhắn
 - ✅ **PWA (Progressive Web App)** - Cài đặt như ứng dụng mobile
-- ✅ **Push Notifications** - Nhận thông báo trên điện thoại
+- ✅ **In-app notifications** - Toast + dropdown (like, comment, follow, message, new_post)
+- ⏳ **Push Notifications (FCM)** - Cần cấu hình `VITE_FIREBASE_APP_CHECK` + FCM token flow (xem `.env.example`)
 
 ## Công nghệ sử dụng
 
@@ -243,6 +244,17 @@ firebase deploy --only hosting
 - **Browser Support**: Chrome/Edge có full support, Safari iOS có limited support
 - **Offline Mode**: Service Worker cache assets và images để hoạt động offline
 - **Install Prompt**: Tự động hiển thị prompt cài đặt khi có thể
+
+## Kiểm thử
+
+```bash
+npm run lint
+npm run test
+npm run test:rules
+npm run build
+```
+
+Checklist thủ công: [docs/QA_CHECKLIST.md](docs/QA_CHECKLIST.md)
 
 ## License
 

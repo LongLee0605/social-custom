@@ -6,7 +6,11 @@
     <meta name="description" content="Ứng dụng mạng xã hội với chat real-time và thông báo" />
     <meta name="theme-color" content="#6366f1" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <meta name="apple-mobile-web-app-title" content="Social Custom" />
     
     <!-- Favicon -->
@@ -49,13 +53,22 @@
         }, 100)
       })
       
-      // Service Worker registration
+      // Service Worker — chỉ bật trên production (tránh lỗi cache extension khi dev)
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .catch(() => {
-              // Silent fail - service worker registration failed
-            })
+        const isLocalDev =
+          location.hostname === 'localhost' ||
+          location.hostname === '127.0.0.1' ||
+          location.protocol === 'file:'
+
+        window.addEventListener('load', async () => {
+          if (isLocalDev) {
+            try {
+              const regs = await navigator.serviceWorker.getRegistrations()
+              await Promise.all(regs.map((r) => r.unregister()))
+            } catch (_) { /* ignore */ }
+            return
+          }
+          navigator.serviceWorker.register('/sw.js').catch(() => {})
         })
       }
     </script>

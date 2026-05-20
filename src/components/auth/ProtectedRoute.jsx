@@ -6,7 +6,7 @@ import LoadingScreen from '../ui/LoadingScreen'
 export const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth()
   const [showLoading, setShowLoading] = useState(false)
-  const [animationComplete, setAnimationComplete] = useState(false)
+  const [, setAnimationComplete] = useState(false)
   const hasShownAnimationRef = useRef(false)
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export const ProtectedRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-brand-600" />
       </div>
     )
   }

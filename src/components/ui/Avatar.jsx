@@ -38,7 +38,7 @@ const Avatar = memo(({ src, alt, size = 'md', className = '' }) => {
   return (
     <div
       className={clsx(
-        'rounded-full bg-primary-100 text-primary-700 flex items-center justify-center overflow-hidden',
+        'rounded-full bg-brand-100 text-brand-700 flex items-center justify-center overflow-hidden',
         sizes[size],
         className
       )}

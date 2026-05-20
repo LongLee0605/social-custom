@@ -1,63 +1,29 @@
 import { useState, useEffect } from 'react'
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore'
-import { db } from '../config/firebase'
-import { useAuth } from '../contexts/AuthContext'
-import { uploadImage } from '../services/imageUpload'
-import { createNotification } from '../services/notificationService'
+import { doc, deleteDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { useAuth } from '@/contexts/AuthContext'
+import { uploadImage } from '@/services/imageUpload'
+import { createNotification } from '@/services/notificationService'
+import {
+  subscribeAllPosts,
+  subscribeFollowingPosts,
+  createPost as createPostDoc,
+  getPost,
+  updatePost,
+  addPostComment,
+  updatePostCommentsArray,
+} from '@/repositories/postsRepository'
+import { getUser } from '@/repositories/usersRepository'
+import {
+  validateImageFile,
+  validatePostContent,
+  validateCommentText,
+  sanitizeFileName,
+  MAX_REPLY_DEPTH,
+} from '@/lib/validation'
 
-export const usePosts = (filterByFollowing = false) => {
+export const usePostActions = () => {
   const { currentUser, userProfile } = useAuth()
-  const [posts, setPosts] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!currentUser && filterByFollowing) {
-      setLoading(false)
-      return
-    }
-
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
-    
-    const unsubscribe = onSnapshot(
-      q,
-      async (snapshot) => {
-        let postsData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-
-        // Nếu filterByFollowing, chỉ hiển thị posts từ người đang follow + chính mình
-        if (filterByFollowing && currentUser) {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', currentUser.uid))
-            if (userDoc.exists()) {
-              const userData = userDoc.data()
-              const followingList = userData.following || []
-              const allowedUserIds = [currentUser.uid, ...followingList]
-              
-              postsData = postsData.filter((post) => 
-                allowedUserIds.includes(post.userId)
-              )
-            }
-          } catch (error) {
-            console.error('Error fetching following list:', error)
-          }
-        }
-
-        setPosts(postsData)
-        setLoading(false)
-      },
-      (error) => {
-        console.error('Error fetching posts:', error)
-        if (error.code === 'permission-denied') {
-          console.error('Firestore permission denied. Please configure Security Rules.')
-        }
-        setLoading(false)
-      }
-    )
-
-    return unsubscribe
-  }, [currentUser, filterByFollowing])
 
   const createPost = async ({ content, image }) => {
     if (!currentUser) {
@@ -68,58 +34,29 @@ export const usePosts = (filterByFollowing = false) => {
       let imageURL = null
 
       if (image) {
-        try {
-          const maxSize = 10 * 1024 * 1024
-          if (image.size > maxSize) {
-            return { success: false, error: 'Kích thước ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 10MB' }
-          }
+        const validation = validateImageFile(image)
+        if (!validation.valid) return { success: false, error: validation.error }
 
-          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
-          if (!allowedTypes.includes(image.type)) {
-            return { success: false, error: 'Định dạng ảnh không được hỗ trợ. Vui lòng chọn ảnh JPG, PNG, GIF hoặc WebP' }
-          }
-
-          const sanitizedFileName = image.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-          const imagePath = `posts/${currentUser.uid}/${Date.now()}_${sanitizedFileName}`
-          
-          imageURL = await uploadImage(image, imagePath)
-        } catch (uploadError) {
-          console.error('Error uploading image:', uploadError)
-          
-          let errorMessage = 'Lỗi khi upload ảnh'
-          if (uploadError.message) {
-            errorMessage = uploadError.message
-          }
-          
-          return { success: false, error: errorMessage }
-        }
+        const imagePath = `posts/${currentUser.uid}/${Date.now()}_${sanitizeFileName(image.name)}`
+        imageURL = await uploadImage(image, imagePath)
       }
 
-      if (!content?.trim() && !imageURL) {
-        return { success: false, error: 'Vui lòng nhập nội dung hoặc chọn ảnh' }
-      }
+      const contentCheck = validatePostContent(content, !!imageURL)
+      if (!contentCheck.valid) return { success: false, error: contentCheck.error }
 
-      const postDocRef = await addDoc(collection(db, 'posts'), {
+      const postDocRef = await createPostDoc({
         userId: currentUser.uid,
         userName: userProfile?.displayName || currentUser.displayName || 'Người dùng',
         userPhotoURL: userProfile?.photoURL || currentUser.photoURL || '',
         content: content?.trim() || '',
         imageURL: imageURL || null,
-        likes: [],
-        comments: [],
-        commentCount: 0,
-        createdAt: serverTimestamp(),
       })
 
-      // Gửi thông báo cho tất cả người theo dõi
       try {
-        const currentUserDoc = await getDoc(doc(db, 'users', currentUser.uid))
-        if (currentUserDoc.exists()) {
-          const userData = currentUserDoc.data()
-          const followers = userData.followers || []
-          
-          // Gửi thông báo cho từng người theo dõi
-          const notificationPromises = followers.map((followerId) =>
+        const userData = await getUser(currentUser.uid)
+        const followers = userData?.followers || []
+        await Promise.all(
+          followers.map((followerId) =>
             createNotification({
               userId: followerId,
               type: 'new_post',
@@ -128,30 +65,22 @@ export const usePosts = (filterByFollowing = false) => {
               link: `/?postId=${postDocRef.id}`,
               relatedUserId: currentUser.uid,
               relatedPostId: postDocRef.id,
-            }).catch((error) => {
-              console.error(`Error creating notification for follower ${followerId}:`, error)
-            })
+            }).catch(console.error)
           )
-          
-          await Promise.all(notificationPromises)
-        }
+        )
       } catch (notificationError) {
         console.error('Error sending notifications to followers:', notificationError)
-        // Không fail toàn bộ nếu thông báo lỗi
       }
 
       return { success: true }
     } catch (error) {
       console.error('Error creating post:', error)
-      let errorMessage = 'Có lỗi xảy ra khi tạo bài viết'
-      
-      if (error.code === 'permission-denied') {
-        errorMessage = 'Bạn không có quyền đăng bài viết. Vui lòng kiểm tra Security Rules.'
-      } else if (error.message) {
-        errorMessage = error.message
+      return {
+        success: false,
+        error: error.code === 'permission-denied'
+          ? 'Bạn không có quyền đăng bài viết. Vui lòng kiểm tra Security Rules.'
+          : error.message || 'Có lỗi xảy ra khi tạo bài viết',
       }
-      
-      return { success: false, error: errorMessage }
     }
   }
 
@@ -159,22 +88,15 @@ export const usePosts = (filterByFollowing = false) => {
     if (!currentUser) return { success: false, error: 'Bạn cần đăng nhập' }
 
     try {
-      const postRef = doc(db, 'posts', postId)
-      const postDoc = await getDoc(postRef)
-      
-      if (!postDoc.exists()) {
-        return { success: false, error: 'Bài viết không tồn tại' }
-      }
+      const postData = await getPost(postId)
+      if (!postData) return { success: false, error: 'Bài viết không tồn tại' }
 
-      const postData = postDoc.data()
       const likes = postData.likes || []
-      
       let updatedLikes
       if (isLiked) {
         updatedLikes = likes.filter((uid) => uid !== currentUser.uid)
       } else {
         updatedLikes = [...likes, currentUser.uid]
-        
         if (postData.userId !== currentUser.uid) {
           createNotification({
             userId: postData.userId,
@@ -184,16 +106,11 @@ export const usePosts = (filterByFollowing = false) => {
             link: `/?postId=${postId}`,
             relatedUserId: currentUser.uid,
             relatedPostId: postId,
-          }).catch((error) => {
-            console.error('Error creating like notification:', error)
-          })
+          }).catch(console.error)
         }
       }
 
-      await updateDoc(postRef, {
-        likes: updatedLikes,
-      })
-
+      await updatePost(postId, { likes: updatedLikes })
       return { success: true }
     } catch (error) {
       console.error('Error liking post:', error)
@@ -203,46 +120,40 @@ export const usePosts = (filterByFollowing = false) => {
 
   const addComment = async (postId, commentText, replyTo = null) => {
     if (!currentUser) return { success: false, error: 'Bạn cần đăng nhập' }
-    if (!commentText?.trim()) return { success: false, error: 'Vui lòng nhập bình luận' }
+    const textCheck = validateCommentText(commentText)
+    if (!textCheck.valid) return { success: false, error: textCheck.error }
 
     try {
-      const postRef = doc(db, 'posts', postId)
-      const postDoc = await getDoc(postRef)
-      
-      if (!postDoc.exists()) {
-        return { success: false, error: 'Bài viết không tồn tại' }
-      }
+      const postData = await getPost(postId)
+      if (!postData) return { success: false, error: 'Bài viết không tồn tại' }
 
-      const postData = postDoc.data()
       const comments = postData.comments || []
-
       let level = 0
       if (replyTo) {
-        const parentComment = comments.find(c => c.id === replyTo)
-        if (parentComment) {
-          level = (parentComment.level || 0) + 1
-          if (level > 2) {
+        const parent = comments.find((c) => c.id === replyTo)
+        if (parent) {
+          level = (parent.level || 0) + 1
+          if (level > MAX_REPLY_DEPTH) {
             return { success: false, error: 'Không thể trả lời quá 3 tầng' }
           }
         }
       }
 
+      const commentId = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
       const newComment = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        id: commentId,
         userId: currentUser.uid,
         userName: userProfile?.displayName || currentUser.displayName || 'Người dùng',
         userPhotoURL: userProfile?.photoURL || currentUser.photoURL || '',
-        text: commentText.trim(),
+        text: textCheck.value,
         createdAt: new Date().toISOString(),
         reactions: {},
         replyTo: replyTo || null,
-        level: level,
+        level,
       }
 
-      await updateDoc(postRef, {
-        comments: [...comments, newComment],
-        commentCount: (postData.commentCount || 0) + 1,
-      })
+      await addPostComment(postId, newComment)
+      await updatePostCommentsArray(postId, [...comments, newComment], (postData.commentCount || 0) + 1)
 
       if (postData.userId !== currentUser.uid && !replyTo) {
         createNotification({
@@ -253,9 +164,7 @@ export const usePosts = (filterByFollowing = false) => {
           link: `/?postId=${postId}`,
           relatedUserId: currentUser.uid,
           relatedPostId: postId,
-        }).catch((error) => {
-          console.error('Error creating comment notification:', error)
-        })
+        }).catch(console.error)
       }
 
       return { success: true }
@@ -267,42 +176,33 @@ export const usePosts = (filterByFollowing = false) => {
 
   const replyComment = async (postId, parentCommentId, replyText, replyToUserId, replyToUserName) => {
     if (!currentUser) return { success: false, error: 'Bạn cần đăng nhập' }
-    if (!replyText?.trim()) return { success: false, error: 'Vui lòng nhập bình luận' }
+    const textCheck = validateCommentText(replyText)
+    if (!textCheck.valid) return { success: false, error: textCheck.error }
 
     try {
-      const postRef = doc(db, 'posts', postId)
-      const postDoc = await getDoc(postRef)
-      
-      if (!postDoc.exists()) {
-        return { success: false, error: 'Bài viết không tồn tại' }
-      }
+      const postData = await getPost(postId)
+      if (!postData) return { success: false, error: 'Bài viết không tồn tại' }
 
-      const postData = postDoc.data()
       const comments = postData.comments || []
-      const parentComment = comments.find(c => c.id === parentCommentId)
-
-      if (!parentComment) {
-        return { success: false, error: 'Bình luận không tồn tại' }
-      }
+      const parentComment = comments.find((c) => c.id === parentCommentId)
+      if (!parentComment) return { success: false, error: 'Bình luận không tồn tại' }
 
       const level = (parentComment.level || 0) + 1
-
+      const commentId = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
       const newReply = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        id: commentId,
         userId: currentUser.uid,
         userName: userProfile?.displayName || currentUser.displayName || 'Người dùng',
         userPhotoURL: userProfile?.photoURL || currentUser.photoURL || '',
-        text: `@${replyToUserName} ${replyText.trim()}`,
+        text: `@${replyToUserName} ${textCheck.value}`,
         createdAt: new Date().toISOString(),
         reactions: {},
         replyTo: parentCommentId,
-        level: level,
+        level,
       }
 
-      await updateDoc(postRef, {
-        comments: [...comments, newReply],
-        commentCount: (postData.commentCount || 0) + 1,
-      })
+      await addPostComment(postId, newReply)
+      await updatePostCommentsArray(postId, [...comments, newReply], (postData.commentCount || 0) + 1)
 
       if (replyToUserId !== currentUser.uid) {
         createNotification({
@@ -313,9 +213,7 @@ export const usePosts = (filterByFollowing = false) => {
           link: `/?postId=${postId}`,
           relatedUserId: currentUser.uid,
           relatedPostId: postId,
-        }).catch((error) => {
-          console.error('Error creating reply notification:', error)
-        })
+        }).catch(console.error)
       }
 
       return { success: true }
@@ -329,58 +227,37 @@ export const usePosts = (filterByFollowing = false) => {
     if (!currentUser) return { success: false, error: 'Bạn cần đăng nhập' }
 
     try {
-      const postRef = doc(db, 'posts', postId)
-      const postDoc = await getDoc(postRef)
-      
-      if (!postDoc.exists()) {
-        return { success: false, error: 'Bài viết không tồn tại' }
-      }
+      const postData = await getPost(postId)
+      if (!postData) return { success: false, error: 'Bài viết không tồn tại' }
 
-      const postData = postDoc.data()
       const comments = postData.comments || []
-      const commentIndex = comments.findIndex(c => c.id === commentId)
-
-      if (commentIndex === -1) {
-        return { success: false, error: 'Bình luận không tồn tại' }
-      }
+      const commentIndex = comments.findIndex((c) => c.id === commentId)
+      if (commentIndex === -1) return { success: false, error: 'Bình luận không tồn tại' }
 
       const comment = comments[commentIndex]
-      const reactions = comment.reactions || {}
+      const reactions = { ...(comment.reactions || {}) }
 
-      if (!reactions[emoji]) {
-        reactions[emoji] = []
-      }
-
+      if (!reactions[emoji]) reactions[emoji] = []
       const userIds = reactions[emoji]
       const userIndex = userIds.indexOf(currentUser.uid)
 
       if (userIndex > -1) {
         userIds.splice(userIndex, 1)
-        if (userIds.length === 0) {
-          delete reactions[emoji]
-        }
+        if (userIds.length === 0) delete reactions[emoji]
       } else {
         Object.keys(reactions).forEach((key) => {
           const index = reactions[key].indexOf(currentUser.uid)
           if (index > -1) {
             reactions[key].splice(index, 1)
-            if (reactions[key].length === 0) {
-              delete reactions[key]
-            }
+            if (reactions[key].length === 0) delete reactions[key]
           }
         })
         reactions[emoji] = [...userIds, currentUser.uid]
       }
 
       const updatedComments = [...comments]
-      updatedComments[commentIndex] = {
-        ...comment,
-        reactions: { ...reactions },
-      }
-
-      await updateDoc(postRef, {
-        comments: updatedComments,
-      })
+      updatedComments[commentIndex] = { ...comment, reactions: { ...reactions } }
+      await updatePostCommentsArray(postId, updatedComments, postData.commentCount)
 
       return { success: true }
     } catch (error) {
@@ -393,46 +270,45 @@ export const usePosts = (filterByFollowing = false) => {
     if (!currentUser) return { success: false, error: 'Bạn cần đăng nhập' }
 
     try {
-      const postRef = doc(db, 'posts', postId)
-      const postDoc = await getDoc(postRef)
-      
-      if (!postDoc.exists()) {
-        return { success: false, error: 'Bài viết không tồn tại' }
-      }
+      const postData = await getPost(postId)
+      if (!postData) return { success: false, error: 'Bài viết không tồn tại' }
 
-      const postData = postDoc.data()
       const comments = postData.comments || []
       const comment = comments.find((c) => c.id === commentId)
-
-      if (!comment) {
-        return { success: false, error: 'Bình luận không tồn tại' }
-      }
-
+      if (!comment) return { success: false, error: 'Bình luận không tồn tại' }
       if (comment.userId !== currentUser.uid) {
         return { success: false, error: 'Bạn không có quyền xóa bình luận này' }
       }
 
-      const deleteCommentAndReplies = (commentId, allComments) => {
-        const toDelete = [commentId]
+      const deleteCommentAndReplies = (id, allComments) => {
+        const toDelete = [id]
         const findReplies = (parentId) => {
-          allComments.forEach(c => {
+          allComments.forEach((c) => {
             if (c.replyTo === parentId) {
               toDelete.push(c.id)
               findReplies(c.id)
             }
           })
         }
-        findReplies(commentId)
+        findReplies(id)
         return toDelete
       }
 
       const idsToDelete = deleteCommentAndReplies(commentId, comments)
       const updatedComments = comments.filter((c) => !idsToDelete.includes(c.id))
+      await updatePostCommentsArray(
+        postId,
+        updatedComments,
+        Math.max(0, (postData.commentCount || 0) - idsToDelete.length)
+      )
 
-      await updateDoc(postRef, {
-        comments: updatedComments,
-        commentCount: Math.max(0, (postData.commentCount || 0) - idsToDelete.length),
-      })
+      for (const id of idsToDelete) {
+        try {
+          await deleteDoc(doc(db, 'posts', postId, 'comments', id))
+        } catch {
+          /* subcollection doc may not exist for legacy comments */
+        }
+      }
 
       return { success: true }
     } catch (error) {
@@ -441,6 +317,82 @@ export const usePosts = (filterByFollowing = false) => {
     }
   }
 
-  return { posts, loading, createPost, likePost, addComment, deleteComment, reactToComment, replyComment }
+  const deletePost = async (postId) => {
+    if (!currentUser) return { success: false, error: 'Bạn cần đăng nhập' }
+    try {
+      const postData = await getPost(postId)
+      if (!postData) return { success: false, error: 'Bài viết không tồn tại' }
+      if (postData.userId !== currentUser.uid) {
+        return { success: false, error: 'Bạn không có quyền xóa bài viết này' }
+      }
+      await deleteDoc(doc(db, 'posts', postId))
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  return {
+    createPost,
+    likePost,
+    addComment,
+    deleteComment,
+    reactToComment,
+    replyComment,
+    deletePost,
+  }
 }
 
+export const usePosts = (filterByFollowing = false) => {
+  const { currentUser } = useAuth()
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const actions = usePostActions()
+
+  useEffect(() => {
+    if (!currentUser) {
+      setLoading(false)
+      setPosts([])
+      return undefined
+    }
+
+    setLoading(true)
+    const onError = (error) => {
+      console.error('Error fetching posts:', error)
+      setLoading(false)
+    }
+
+    if (filterByFollowing) {
+      let cancelled = false
+      let unsubFollowing = () => {}
+      getUser(currentUser.uid)
+        .then((userData) => {
+          if (cancelled) return
+          const following = userData?.following || []
+          unsubFollowing = subscribeFollowingPosts(
+            following,
+            currentUser.uid,
+            (data) => {
+              if (!cancelled) {
+                setPosts(data)
+                setLoading(false)
+              }
+            },
+            onError
+          )
+        })
+        .catch(onError)
+      return () => {
+        cancelled = true
+        unsubFollowing()
+      }
+    }
+
+    return subscribeAllPosts((data) => {
+      setPosts(data)
+      setLoading(false)
+    }, onError)
+  }, [currentUser, filterByFollowing])
+
+  return { posts, loading, ...actions }
+}

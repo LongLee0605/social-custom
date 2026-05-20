@@ -6,7 +6,7 @@ const userInfoCache = new Map()
 
 export const useUserInfo = (userId) => {
   const [userInfo, setUserInfo] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
 
   useEffect(() => {
     if (!userId) {

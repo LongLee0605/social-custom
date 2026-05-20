@@ -1,72 +1,60 @@
 import { useMemo, useCallback } from 'react'
 import Avatar from '../ui/Avatar'
 import { useUserInfo } from '../../hooks/useUserInfo'
+import { formatRelativeTime } from '../../utils/formatDate'
+import { cn } from '@/lib/cn'
 
 const ChatListItem = ({ chat, isSelected, onClick }) => {
   const userInfo = useUserInfo(chat.userId)
 
-  const displayName = useMemo(() => userInfo?.displayName || chat.userName, [userInfo?.displayName, chat.userName])
-  const photoURL = useMemo(() => userInfo?.photoURL || null, [userInfo?.photoURL])
-  const timeString = useMemo(() => {
+  const displayName = useMemo(
+    () => userInfo?.displayName || chat.userName,
+    [userInfo?.displayName, chat.userName]
+  )
+  const photoURL = useMemo(() => userInfo?.photoURL || chat.userPhotoURL || null, [userInfo?.photoURL, chat.userPhotoURL])
+
+  const timeLabel = useMemo(() => {
     if (!chat.updatedAt) return null
-    return new Date(chat.updatedAt.toMillis?.() || chat.updatedAt).toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    const date = chat.updatedAt.toDate?.() || new Date(chat.updatedAt.toMillis?.() || chat.updatedAt)
+    return formatRelativeTime(date)
   }, [chat.updatedAt])
 
-  const handleClick = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (onClick && chat?.id) {
-      onClick(chat)
-    }
-  }, [onClick, chat])
+  const handleClick = useCallback(
+    (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (onClick && chat?.id) onClick(chat)
+    },
+    [onClick, chat]
+  )
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      className={`w-full p-3 sm:p-4 hover:bg-gray-50 transition-colors text-left ${
-        isSelected ? 'bg-primary-50 border-l-4 border-primary-600' : ''
-      }`}
+      className={cn(
+        'w-full p-3 text-left transition-colors sm:p-4',
+        isSelected ? 'border-l-4 border-brand-600 bg-brand-50/80' : 'hover:bg-slate-50'
+      )}
       aria-label={`Mở cuộc trò chuyện với ${displayName}`}
+      aria-current={isSelected ? 'true' : undefined}
     >
-      <div className="flex items-center space-x-2 sm:space-x-3">
-        <div className="relative flex-shrink-0">
-          <Avatar
-            src={photoURL}
-            alt={displayName}
-            size="sm"
-            className="sm:hidden"
-          />
-          <Avatar
-            src={photoURL}
-            alt={displayName}
-            size="md"
-            className="hidden sm:block"
-          />
+      <div className="flex items-center gap-3">
+        <div className="relative shrink-0">
+          <Avatar src={photoURL} alt={displayName} size="md" />
           {chat.isOnline && (
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full"></span>
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-            <p className="font-medium text-sm sm:text-base text-gray-900 truncate">
-              {displayName}
-            </p>
-            {timeString && (
-              <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
-                {timeString}
-              </span>
-            )}
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex items-center justify-between gap-2">
+            <p className="truncate font-semibold text-slate-900">{displayName}</p>
+            {timeLabel && <span className="shrink-0 text-xs text-slate-400">{timeLabel}</span>}
           </div>
-          <p className="text-xs sm:text-sm text-gray-500 truncate">
-            {chat.lastMessage || 'Chưa có tin nhắn'}
-          </p>
+          <p className="truncate text-sm text-slate-500">{chat.lastMessage || 'Chưa có tin nhắn'}</p>
         </div>
         {chat.unreadCount > 0 && (
-          <span className="bg-primary-600 text-white text-[10px] sm:text-xs font-medium rounded-full min-w-[18px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center px-1 sm:px-1.5 flex-shrink-0">
+          <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-brand-600 px-1.5 text-xs font-semibold text-white">
             {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
           </span>
         )}
@@ -76,4 +64,3 @@ const ChatListItem = ({ chat, isSelected, onClick }) => {
 }
 
 export default ChatListItem
-

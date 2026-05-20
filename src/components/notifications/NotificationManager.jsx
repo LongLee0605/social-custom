@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { useNotifications } from '../../hooks/useNotifications'
+import { useNotifications } from '@/contexts/NotificationsContext'
 import ToastNotification from './ToastNotification'
 
 const NotificationManager = () => {

@@ -1,24 +1,19 @@
 import { Link } from 'react-router-dom'
-import Button from '../components/ui/Button'
+import Button from '@/components/ui/Button'
 
-const NotFoundPage = () => {
-  return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-9xl font-bold text-primary-600 mb-4">404</h1>
-        <h2 className="text-3xl font-semibold text-gray-900 mb-4">
-          Trang không tìm thấy
-        </h2>
-        <p className="text-gray-600 mb-8">
-          Trang bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.
-        </p>
-        <Link to="/">
-          <Button variant="primary">Về trang chủ</Button>
-        </Link>
-      </div>
+const NotFoundPage = () => (
+  <div className="flex min-h-[60dvh] items-center justify-center px-4">
+    <div className="text-center">
+      <p className="text-8xl font-bold text-brand-600 sm:text-9xl">404</p>
+      <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">Trang không tìm thấy</h1>
+      <p className="mt-2 text-slate-500">
+        Trang bạn tìm không tồn tại hoặc đã bị xóa.
+      </p>
+      <Link to="/" className="mt-8 inline-block">
+        <Button variant="primary">Về trang chủ</Button>
+      </Link>
     </div>
-  )
-}
+  </div>
+)
 
 export default NotFoundPage
-

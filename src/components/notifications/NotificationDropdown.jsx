@@ -1,13 +1,11 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
-import { useNotifications } from '../../hooks/useNotifications'
+import { useNotifications } from '@/contexts/NotificationsContext'
 import { Bell } from 'lucide-react'
 import Button from '../ui/Button'
 import NotificationItem from './NotificationItem'
 
 const NotificationDropdown = () => {
-  const { currentUser } = useAuth()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -18,67 +16,54 @@ const NotificationDropdown = () => {
         setIsOpen(false)
       }
     }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-
-  const handleNotificationClick = useCallback(async (notification) => {
-    if (!notification.read) {
-      await markAsRead(notification.id)
-    }
-    setIsOpen(false)
-  }, [markAsRead])
+  const handleNotificationClick = useCallback(
+    async (notification) => {
+      if (!notification.read) await markAsRead(notification.id)
+      setIsOpen(false)
+    },
+    [markAsRead]
+  )
 
   const displayNotifications = useMemo(() => notifications.slice(0, 10), [notifications])
-
-  const handleToggle = useCallback(() => {
-    setIsOpen(prev => !prev)
-  }, [])
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={handleToggle}
-        className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors relative"
+        type="button"
+        onClick={() => setIsOpen((o) => !o)}
+        className="relative rounded-xl p-2.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-600"
+        aria-label="Thông báo"
+        aria-expanded={isOpen}
+        aria-haspopup="true"
       >
-        <Bell className="w-6 h-6" />
+        <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 bg-red-500 text-white text-xs font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[500px] flex flex-col">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900">Thông báo</h3>
+        <div className="absolute right-0 z-50 mt-2 flex max-h-[min(70dvh,500px)] w-80 flex-col overflow-hidden rounded-2xl border border-surface-border bg-white shadow-elevated">
+          <div className="flex items-center justify-between border-b border-surface-border px-4 py-3">
+            <h3 className="font-semibold text-slate-900">Thông báo</h3>
             {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={markAllAsRead}
-                className="text-xs"
-              >
-                Đánh dấu tất cả đã đọc
+              <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs">
+                Đọc tất cả
               </Button>
             )}
           </div>
 
-          <div className="overflow-y-auto flex-1">
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-custom">
             {displayNotifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <p>Chưa có thông báo nào</p>
-              </div>
+              <p className="p-8 text-center text-sm text-slate-500">Chưa có thông báo</p>
             ) : (
-              <div className="divide-y divide-gray-200">
+              <div className="divide-y divide-surface-border">
                 {displayNotifications.map((notification) => (
                   <NotificationItem
                     key={notification.id}
@@ -90,14 +75,14 @@ const NotificationDropdown = () => {
             )}
           </div>
 
-          {notifications.length > 10 && (
-            <div className="p-4 border-t border-gray-200 text-center">
+          {notifications.length > 0 && (
+            <div className="border-t border-surface-border p-3 text-center">
               <Link
                 to="/notifications"
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                className="text-sm font-medium text-brand-600 hover:text-brand-700"
                 onClick={() => setIsOpen(false)}
               >
-                Xem tất cả thông báo
+                Xem tất cả
               </Link>
             </div>
           )}
@@ -108,4 +93,3 @@ const NotificationDropdown = () => {
 }
 
 export default NotificationDropdown
-

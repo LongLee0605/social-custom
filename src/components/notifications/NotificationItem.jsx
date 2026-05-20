@@ -3,59 +3,20 @@ import { Link } from 'react-router-dom'
 import Avatar from '../ui/Avatar'
 import { useUserInfo } from '../../hooks/useUserInfo'
 import { formatRelativeTime } from '../../utils/formatDate'
-import { Heart, MessageCircle, UserPlus, MessageSquare, FileText } from 'lucide-react'
+import { Heart, MessageCircle, UserPlus, MessageSquare, FileText, Bell } from 'lucide-react'
+import { cn } from '@/lib/cn'
 
 const NotificationItem = memo(({ notification, onClick }) => {
   const userInfo = useUserInfo(notification.relatedUserId)
 
-  const handleClick = useCallback(() => {
-    if (onClick) {
-      onClick()
-    }
-  }, [onClick])
-
-  const getNotificationIcon = useCallback((type) => {
-    switch (type) {
-      case 'like':
-        return <Heart className="w-5 h-5 text-red-500" />
-      case 'comment':
-        return <MessageCircle className="w-5 h-5 text-blue-500" />
-      case 'follow':
-        return <UserPlus className="w-5 h-5 text-green-500" />
-      case 'message':
-        return <MessageSquare className="w-5 h-5 text-purple-500" />
-      case 'new_post':
-        return <FileText className="w-5 h-5 text-orange-500" />
-      default:
-        return <MessageCircle className="w-5 h-5 text-gray-500" />
-    }
-  }, [])
-
-  const getNotificationMessage = useCallback((type, displayName) => {
-    switch (type) {
-      case 'like':
-        return `${displayName} đã thích bài viết của bạn`
-      case 'comment':
-        return `${displayName} đã bình luận bài viết của bạn`
-      case 'follow':
-        return `${displayName} đã theo dõi bạn`
-      case 'message':
-        return `${displayName} đã gửi cho bạn một tin nhắn`
-      case 'new_post':
-        return `${displayName} đã đăng một bài viết mới`
-      default:
-        return notification.message || 'Bạn có thông báo mới'
-    }
-  }, [notification.message, notification.type])
-
-  const displayName = useMemo(() => userInfo?.displayName || notification.relatedUserName || 'Ai đó', [userInfo?.displayName, notification.relatedUserName])
+  const displayName = useMemo(
+    () => userInfo?.displayName || notification.relatedUserName || 'Ai đó',
+    [userInfo?.displayName, notification.relatedUserName]
+  )
   const photoURL = useMemo(() => userInfo?.photoURL || null, [userInfo?.photoURL])
 
   const getNotificationLink = useCallback(() => {
-    if (notification.link) {
-      return notification.link
-    }
-
+    if (notification.link) return notification.link
     switch (notification.type) {
       case 'like':
       case 'comment':
@@ -66,45 +27,58 @@ const NotificationItem = memo(({ notification, onClick }) => {
       case 'follow':
         return notification.relatedUserId ? `/profile/${notification.relatedUserId}` : '/'
       default:
-        return '/'
+        return '/notifications'
     }
   }, [notification])
+
+  const icon = useMemo(() => {
+    const cls = 'h-5 w-5'
+    switch (notification.type) {
+      case 'like':
+        return <Heart className={cn(cls, 'text-red-500')} />
+      case 'comment':
+        return <MessageCircle className={cn(cls, 'text-brand-500')} />
+      case 'follow':
+        return <UserPlus className={cn(cls, 'text-emerald-500')} />
+      case 'message':
+        return <MessageSquare className={cn(cls, 'text-violet-500')} />
+      case 'new_post':
+        return <FileText className={cn(cls, 'text-amber-500')} />
+      default:
+        return <Bell className={cn(cls, 'text-slate-400')} />
+    }
+  }, [notification.type])
 
   return (
     <Link
       to={getNotificationLink()}
-      onClick={handleClick}
-      className={`block p-4 hover:bg-gray-50 transition-colors ${
-        !notification.read ? 'bg-blue-50' : ''
-      }`}
+      onClick={onClick}
+      className={cn(
+        'block p-4 transition-colors hover:bg-slate-50',
+        !notification.read && 'bg-brand-50/60'
+      )}
     >
-      <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0">
+      <div className="flex items-start gap-3">
+        <div className="shrink-0">
           {notification.relatedUserId ? (
-            <Avatar
-              src={photoURL}
-              alt={displayName}
-              size="sm"
-            />
+            <Avatar src={photoURL} alt={displayName} size="sm" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-              {getNotificationIcon(notification.type)}
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100">
+              {icon}
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-900">
-            <span className="font-semibold">
-              {displayName}
-            </span>{' '}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-slate-800">
+            <span className="font-semibold text-slate-900">{displayName}</span>{' '}
             {notification.message}
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="mt-1 text-xs text-slate-500">
             {formatRelativeTime(notification.createdAt)}
           </p>
         </div>
         {!notification.read && (
-          <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+          <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand-500" aria-hidden />
         )}
       </div>
     </Link>
@@ -114,4 +88,3 @@ const NotificationItem = memo(({ notification, onClick }) => {
 NotificationItem.displayName = 'NotificationItem'
 
 export default NotificationItem
-

@@ -3,36 +3,106 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --layout-header: 3.5rem;
+    --layout-mobile-nav: 4.625rem;
+    --layout-mobile-gap: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    :root {
+      --layout-header: 4rem;
+    }
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-padding-bottom: calc(
+      var(--layout-mobile-nav) + env(safe-area-inset-bottom, 0px) + var(--layout-mobile-gap)
+    );
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-surface-muted text-slate-900 font-sans antialiased;
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
   }
 }
 
 @layer components {
+  .app-shell {
+    @apply min-h-screen bg-[radial-gradient(ellipse_at_top,_#eef2ff_0%,_#f4f6fb_45%,_#f8fafc_100%)];
+  }
+
   .container-custom {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
-}
 
-@keyframes slide-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
+  .main-content {
+    @apply flex-1 w-full min-w-0;
+    padding-bottom: calc(
+      var(--layout-mobile-nav) + env(safe-area-inset-bottom, 0px) + var(--layout-mobile-gap)
+    );
   }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
 
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out;
+  @media (min-width: 1024px) {
+    .main-content {
+      padding-bottom: 1.5rem;
+    }
+  }
+
+  .mobile-tab-bar {
+    min-height: calc(var(--layout-mobile-nav) + env(safe-area-inset-bottom, 0px));
+    padding-top: 0.375rem;
+    padding-bottom: max(0.375rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .glass-header {
+    @apply bg-white/85 backdrop-blur-xl border-b border-surface-border/80 shadow-soft;
+  }
+
+  .page-stack {
+    @apply space-y-5 sm:space-y-6 pb-1;
+  }
+
+  .content-grid {
+    @apply grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6;
+  }
+
+  .content-main {
+    @apply lg:col-span-8 space-y-5 pb-2 lg:pb-0;
+  }
+
+  .content-aside {
+    @apply hidden lg:block lg:col-span-4 space-y-5;
+  }
+
+  .input-modern {
+    @apply w-full rounded-xl border border-surface-border bg-white px-4 py-2.5 text-slate-900 placeholder:text-slate-400;
+    @apply transition-all focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20;
+  }
+
+  .composer-trigger {
+    @apply flex-1 text-left rounded-full border border-surface-border bg-white px-4 py-3 text-sm text-slate-500;
+    @apply hover:border-brand-300 hover:bg-brand-50/50 transition-all;
+  }
+
+  .nav-active {
+    @apply bg-brand-600 text-white shadow-md shadow-brand-500/25;
+  }
+
+  .nav-idle {
+    @apply text-slate-600 hover:bg-white hover:text-slate-900;
+  }
 }
 
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -49,88 +119,24 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 
-  /* Modern Custom Scrollbar */
-  .scrollbar-modern {
+  .scrollbar-custom {
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
+    scrollbar-color: rgb(99 102 241 / 0.35) transparent;
   }
-
-  .scrollbar-modern::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  .scrollbar-modern::-webkit-scrollbar-track {
-    background: transparent;
-    border-radius: 10px;
-  }
-
-  .scrollbar-modern::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.5);
-    border-radius: 10px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-    transition: background 0.2s ease;
-  }
-
-  .scrollbar-modern::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.7);
-    background-clip: padding-box;
-  }
-
-  .scrollbar-modern::-webkit-scrollbar-thumb:active {
-    background: rgba(0, 0, 0, 0.8);
-    background-clip: padding-box;
-  }
-
-  /* Thin Modern Scrollbar for Chat */
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(192, 192, 192, 0.4) transparent;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
+  .scrollbar-custom::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-    border-radius: 10px;
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background: rgb(99 102 241 / 0.35);
+    border-radius: 8px;
   }
 
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(99, 102, 241, 0.4);
-    border-radius: 10px;
-    border: 1px solid transparent;
-    background-clip: padding-box;
-    transition: all 0.2s ease;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgba(99, 102, 241, 0.6);
-    background-clip: padding-box;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb:active {
-    background: rgba(99, 102, 241, 0.8);
-    background-clip: padding-box;
-  }
-
-  /* Mobile zoom cho chat window */
-  .mobile-zoom {
-    zoom: 0.8;
-  }
-
-  @media (min-width: 1024px) {
-    .mobile-zoom {
-      zoom: 1;
-    }
+  .safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
   }
 }
-

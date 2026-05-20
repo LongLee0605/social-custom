@@ -10,23 +10,14 @@ import { useUserInfo } from '../../hooks/useUserInfo'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
 import { formatRelativeTime } from '../../utils/formatDate'
-import { MoreVertical, Phone, Video, Search, ArrowDown, X } from 'lucide-react'
+import { Search, ArrowDown, X } from 'lucide-react'
 import AlertModal from '../ui/AlertModal'
 import Input from '../ui/Input'
 
 const ChatWindow = ({ chat }) => {
   const { currentUser } = useAuth()
-
-  // Validate chat object
-  if (!chat || !chat.id) {
-    return (
-      <Card className="h-full flex items-center justify-center">
-        <div className="text-center text-gray-500">
-          <p>Lỗi: Không tìm thấy thông tin cuộc trò chuyện</p>
-        </div>
-      </Card>
-    )
-  }
+  const chatId = chat?.id || ''
+  const partnerId = chat?.userId || ''
 
   const {
     messages,
@@ -39,15 +30,16 @@ const ChatWindow = ({ chat }) => {
     reactToMessage,
     markAsRead,
     retryFailedMessage,
-  } = useMessages(chat.id)
-  const { typingUsers, setTyping } = useTyping(chat.id)
-  const { isOnline, lastSeen } = useOnlineStatus(chat.userId)
-  const userInfo = useUserInfo(chat.userId)
+  } = useMessages(chatId)
+  const { typingUsers, setTyping } = useTyping(chatId)
+  const { isOnline, lastSeen } = useOnlineStatus(partnerId)
+  const userInfo = useUserInfo(partnerId)
   const [editingMessage, setEditingMessage] = useState(null)
   const [editText, setEditText] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState({ isOpen: false, message: '' })
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const messagesEndRef = useRef(null)
@@ -183,11 +175,11 @@ const ChatWindow = ({ chat }) => {
       if (result.success) {
         setTyping(false)
         setTimeout(() => scrollToBottom(), 100)
-      } else if (result.error) {
-        console.error('Error sending message:', result.error)
+      } else {
+        setSendError({ isOpen: true, message: result.error || 'Không gửi được tin nhắn' })
       }
     } catch (error) {
-      console.error('Error sending message:', error)
+      setSendError({ isOpen: true, message: error.message || 'Không gửi được tin nhắn' })
     } finally {
       setSending(false)
     }
@@ -240,10 +232,15 @@ const ChatWindow = ({ chat }) => {
     }
   }, [editingMessage, editText, editMessage])
 
-  const handleDeleteMessage = useCallback(async (messageId) => {
-    await deleteMessage(messageId)
+  const handleDeleteRequest = useCallback((messageId) => {
+    setShowDeleteConfirm(messageId)
+  }, [])
+
+  const handleDeleteMessage = useCallback(async () => {
+    if (!showDeleteConfirm) return
+    await deleteMessage(showDeleteConfirm)
     setShowDeleteConfirm(null)
-  }, [deleteMessage])
+  }, [deleteMessage, showDeleteConfirm])
 
   const handleReactMessage = useCallback(async (messageId, emoji) => {
     await reactToMessage(messageId, emoji)
@@ -273,9 +270,19 @@ const ChatWindow = ({ chat }) => {
     }
   }, [hasMore, loading, loadMoreMessages])
 
+  if (!chat?.id) {
+    return (
+      <Card className="h-full flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <p>Lỗi: Không tìm thấy thông tin cuộc trò chuyện</p>
+        </div>
+      </Card>
+    )
+  }
+
   return (
-    <Card className="lg:h-full h-[calc(100vh-80px)] flex flex-col overflow-hidden">
-      <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-white">
+    <Card className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b border-surface-border bg-white p-3 sm:p-4">
         <Link
           to={`/profile/${chat.userId}`}
           className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer"
@@ -298,10 +305,10 @@ const ChatWindow = ({ chat }) => {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate hover:text-primary-600 transition-colors">
+            <h3 className="truncate text-sm font-semibold text-slate-900 transition-colors hover:text-brand-600 sm:text-base">
               {userInfo?.displayName || chat.userName}
             </h3>
-            <p className="text-xs sm:text-sm text-gray-500 truncate">
+            <p className="truncate text-xs text-slate-500 sm:text-sm">
               {typingUsers.length > 0
                 ? 'Đang soạn tin nhắn...'
                 : getStatusText()}
@@ -311,34 +318,16 @@ const ChatWindow = ({ chat }) => {
         <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
           <button
             onClick={() => setShowSearch(!showSearch)}
-            className="p-1.5 sm:p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+            className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-brand-50 hover:text-brand-600 sm:p-2"
             title="Tìm kiếm tin nhắn"
           >
             <Search className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-          <button
-            className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
-            title="Gọi điện"
-          >
-            <Phone className="w-5 h-5" />
-          </button>
-          <button
-            className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
-            title="Gọi video"
-          >
-            <Video className="w-5 h-5" />
-          </button>
-          <button
-            className="hidden sm:block p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
-            title="Thêm"
-          >
-            <MoreVertical className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       {showSearch && (
-        <div className="p-2 sm:p-3 border-b border-gray-200 bg-white">
+        <div className="shrink-0 border-b border-surface-border bg-white p-2 sm:p-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
@@ -366,7 +355,7 @@ const ChatWindow = ({ chat }) => {
 
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-4 bg-gray-50 relative scrollbar-thin"
+        className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/80 p-3 sm:p-4 scrollbar-custom"
         style={{ scrollBehavior: 'smooth' }}
         onScroll={(e) => {
           const container = e.target
@@ -382,10 +371,10 @@ const ChatWindow = ({ chat }) => {
       >
         {loading && messages.length === 0 ? (
           <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-600"></div>
           </div>
         ) : groupedMessages.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
+          <div className="py-12 text-center text-slate-500">
             <p className="mb-2">
               {searchQuery ? 'Không tìm thấy tin nhắn nào' : 'Chưa có tin nhắn nào'}
             </p>
@@ -399,7 +388,7 @@ const ChatWindow = ({ chat }) => {
               <div className="text-center py-2">
                 <button
                   onClick={handleScrollToTop}
-                  className="text-sm text-primary-600 hover:text-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-sm font-medium text-brand-600 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={loading}
                 >
                   {loading ? 'Đang tải...' : 'Tải thêm tin nhắn cũ'}
@@ -416,7 +405,7 @@ const ChatWindow = ({ chat }) => {
                   hasTimeGap={message.hasTimeGap}
                   showTime={message.showTime}
                   onEdit={handleEdit}
-                  onDelete={handleDeleteMessage}
+                  onDeleteRequest={handleDeleteRequest}
                   onReact={handleReactMessage}
                   onRetry={message.status === 'failed' ? () => retryFailedMessage(message.id) : null}
                 />
@@ -429,7 +418,7 @@ const ChatWindow = ({ chat }) => {
           <div className='flex w-full items-center justify-center absolute bottom-4 left-0 right-0 z-10 animate-fade-in'>
             <button
               onClick={scrollToBottom}
-              className="bg-primary-600 text-white rounded-full p-2 sm:p-3 shadow-lg hover:bg-primary-700 transition-all duration-200 hover:scale-110 active:scale-95"
+              className="rounded-full bg-brand-600 p-2 text-white shadow-elevated transition-all hover:bg-brand-700 hover:scale-105 active:scale-95 sm:p-3"
               aria-label="Cuộn xuống dưới"
             >
               <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -439,7 +428,7 @@ const ChatWindow = ({ chat }) => {
       </div>
 
       {editingMessage && (
-        <div className="p-4 border-t border-gray-200 bg-white">
+        <div className="shrink-0 border-t border-surface-border bg-white p-4">
           <div className="flex items-center space-x-2">
             <Input
               value={editText}
@@ -459,7 +448,7 @@ const ChatWindow = ({ chat }) => {
             />
             <button
               onClick={handleSaveEdit}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="rounded-xl bg-brand-600 px-4 py-2 text-white transition-colors hover:bg-brand-700"
             >
               Lưu
             </button>
@@ -490,7 +479,15 @@ const ChatWindow = ({ chat }) => {
         type="warning"
         title="Xác nhận xóa"
         message="Bạn có chắc muốn xóa tin nhắn này? Hành động này không thể hoàn tác."
-        onConfirm={() => handleDeleteMessage(showDeleteConfirm)}
+        onConfirm={handleDeleteMessage}
+      />
+
+      <AlertModal
+        isOpen={sendError.isOpen}
+        onClose={() => setSendError({ isOpen: false, message: '' })}
+        type="error"
+        title="Lỗi gửi tin"
+        message={sendError.message}
       />
     </Card>
   )

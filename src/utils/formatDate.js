@@ -74,8 +74,6 @@ export const formatMessageTime = (timestamp) => {
 
     const now = new Date()
     const diff = now - date
-    const diffMinutes = Math.floor(diff / 60000)
-    const diffHours = Math.floor(diff / 3600000)
     const diffDays = Math.floor(diff / 86400000)
 
     if (diffDays === 0) {

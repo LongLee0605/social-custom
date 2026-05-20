@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   collection,
   query,
@@ -25,6 +25,8 @@ export const useMessages = (chatId) => {
   const [hasMore, setHasMore] = useState(false)
   const [lastMessageDoc, setLastMessageDoc] = useState(null)
   const [sendingMessages, setSendingMessages] = useState(new Map())
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
 
   useEffect(() => {
     if (!chatId) {
@@ -72,7 +74,20 @@ export const useMessages = (chatId) => {
         )
 
         const sortedMessages = messagesData.reverse()
-        setMessages(sortedMessages)
+        setMessages((prev) => {
+          const pending = prev.filter(
+            (m) => typeof m.id === 'string' && m.id.startsWith('temp_')
+          )
+          const merged = [...sortedMessages]
+          pending.forEach((p) => {
+            if (!merged.some((m) => m.id === p.id)) merged.push(p)
+          })
+          return merged.sort((a, b) => {
+            const ta = a.createdAt?.toMillis?.() ?? (a.createdAt ? new Date(a.createdAt).getTime() : 0)
+            const tb = b.createdAt?.toMillis?.() ?? (b.createdAt ? new Date(b.createdAt).getTime() : 0)
+            return ta - tb
+          })
+        })
         setLastMessageDoc(snapshot.docs[snapshot.docs.length - 1])
         setHasMore(snapshot.docs.length === 50)
         setLoading(false)
@@ -140,7 +155,7 @@ export const useMessages = (chatId) => {
     }
   }, [chatId, lastMessageDoc, hasMore])
 
-  const sendMessage = async (text, imageURL = null, fileURL = null, fileName = null, fileSize = null, retryCount = 0) => {
+  const sendMessage = async (text, imageURL = null, fileURL = null, fileName = null, fileSize = null) => {
     if (!chatId || !currentUser) return { success: false, error: 'Missing chatId or user' }
 
     const tempId = `temp_${Date.now()}_${Math.random()}`
@@ -250,12 +265,6 @@ export const useMessages = (chatId) => {
       setMessages((prev) => prev.map((msg) => 
         msg.id === tempId ? { ...msg, status: 'failed' } : msg
       ))
-
-      if (retryCount < 3) {
-        setTimeout(() => {
-          sendMessage(text, imageURL, fileURL, fileName, fileSize, retryCount + 1)
-        }, 2000 * (retryCount + 1))
-      }
 
       return { success: false, error: error.message, tempId }
     }
@@ -407,7 +416,7 @@ export const useMessages = (chatId) => {
     if (!chatId || !currentUser) return
 
     try {
-      const unreadMessages = messages.filter(
+      const unreadMessages = messagesRef.current.filter(
         (msg) => msg.senderId !== currentUser.uid && !msg.read && !msg.id?.startsWith('temp_')
       )
 
@@ -436,7 +445,7 @@ export const useMessages = (chatId) => {
     } catch (error) {
       console.error('Error marking messages as read:', error)
     }
-  }, [chatId, currentUser, messages])
+  }, [chatId, currentUser])
 
   const retryFailedMessage = useCallback(async (tempId) => {
     const failedMessage = sendingMessages.get(tempId)

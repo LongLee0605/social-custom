@@ -5,24 +5,9 @@ import Button from '../ui/Button'
 import Avatar from '../ui/Avatar'
 import AlertModal from '../ui/AlertModal'
 import { useUserInfo } from '../../hooks/useUserInfo'
+import EmojiPickerModal from '../ui/EmojiPickerModal'
+import { MESSAGE_EMOJIS } from '@/lib/emojis'
 import { Image, X, Smile } from 'lucide-react'
-
-const EMOJI_LIST = [
-  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
-  '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰',
-  '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜',
-  '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏',
-  '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
-  '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠',
-  '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨',
-  '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥',
-  '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧',
-  '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
-  '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑',
-  '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻',
-  '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸',
-  '😹', '😻', '😼', '😽', '🙀', '😿', '😾'
-]
 
 const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
   const { userProfile, currentUser } = useAuth()
@@ -145,7 +130,7 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
               onChange={(e) => setContent(e.target.value)}
               placeholder="Bạn đang nghĩ gì?"
               rows={4}
-              className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none overflow-hidden"
+              className="input-modern resize-none text-sm sm:text-base"
             />
             {imagePreview && (
               <div className="mt-3 sm:mt-4 relative">
@@ -166,26 +151,9 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
           </div>
         </div>
 
-        {showEmojiPicker && (
-          <div className="p-3 sm:p-4 border-t border-gray-200 bg-gray-50 max-h-48 overflow-y-auto overflow-x-hidden scrollbar-thin">
-            <div className="grid grid-cols-6 sm:grid-cols-8 gap-1 sm:gap-2 max-w-full">
-              {EMOJI_LIST.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => insertEmoji(emoji)}
-                  className="text-xl sm:text-2xl hover:scale-125 transition-transform p-1 hover:bg-gray-200 rounded"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-3 sm:pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
-          <div className="flex items-center space-x-3 sm:space-x-4 justify-center sm:justify-start">
-            <label className="flex items-center space-x-2 text-sm sm:text-base text-gray-600 hover:text-primary-600 cursor-pointer">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between border-t border-surface-border pt-3 sm:pt-4 space-y-3 sm:space-y-0">
+          <div className="flex items-center justify-center gap-3 sm:justify-start sm:gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600 transition-colors hover:text-brand-600 sm:text-base">
               <Image className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Thêm ảnh</span>
               <input
@@ -197,11 +165,11 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
             </label>
             <button
               type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="flex items-center space-x-2 text-sm sm:text-base text-gray-600 hover:text-primary-600 transition-colors"
+              onClick={() => setShowEmojiPicker(true)}
+              className="flex items-center gap-2 text-sm text-slate-600 transition-colors hover:text-brand-600 sm:text-base"
             >
-              <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Icon</span>
+              <Smile className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span>Emoji</span>
             </button>
           </div>
           <div className="flex space-x-2 sm:space-x-3">
@@ -220,6 +188,14 @@ const CreatePost = ({ isOpen, onClose, onCreatePost }) => {
         </div>
       </form>
       
+      <EmojiPickerModal
+        isOpen={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        title="Chèn emoji"
+        emojis={MESSAGE_EMOJIS}
+        onSelect={insertEmoji}
+      />
+
       <AlertModal
         isOpen={alert.isOpen}
         onClose={() => setAlert({ ...alert, isOpen: false })}

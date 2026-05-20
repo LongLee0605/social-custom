@@ -1,182 +1,121 @@
-import { useState, useEffect } from 'react'
-import { isPWAInstalled, isMobileDevice, isPWASupported } from '../utils/deviceDetection'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  isPWAInstalled,
+  isMobileDevice,
+  isPWASupported,
+  isIOS,
+  isAndroid,
+} from '@/utils/deviceDetection'
 
 export const usePWA = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
-  const [isInstallable, setIsInstallable] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isSupported, setIsSupported] = useState(false)
+  const [platform, setPlatform] = useState('desktop')
+
+  const refreshInstallState = useCallback(() => {
+    setIsInstalled(isPWAInstalled())
+    setIsMobile(isMobileDevice())
+    setIsSupported(isPWASupported())
+    if (isIOS()) setPlatform('ios')
+    else if (isAndroid()) setPlatform('android')
+    else if (isMobileDevice()) setPlatform('mobile')
+    else setPlatform('desktop')
+  }, [])
 
   useEffect(() => {
-    // Kiểm tra mobile và PWA support ngay lập tức
-    let mobile = false
-    let supported = false
-    try {
-      mobile = isMobileDevice()
-      supported = isPWASupported()
-      setIsMobile(mobile)
-      setIsSupported(supported)
-    } catch (error) {
-      setIsMobile(false)
-      setIsSupported(false)
-    }
-    
-    // Kiểm tra xem app đã được cài đặt chưa (nhiều cách)
-    const checkInstalled = () => {
-      if (isPWAInstalled()) {
-        setIsInstalled(true)
-        return true
-      }
-      
-      // Kiểm tra display mode
-      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
-        setIsInstalled(true)
-        return true
-      }
-      
-      // Kiểm tra iOS standalone
-      if (window.navigator && window.navigator.standalone === true) {
-        setIsInstalled(true)
-        return true
-      }
-      
-      // Kiểm tra minimal-ui
-      if (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) {
-        setIsInstalled(true)
-        return true
-      }
-      
-      return false
-    }
-    
-    // Kiểm tra ngay lập tức
-    if (checkInstalled()) {
-      return
-    }
+    refreshInstallState()
 
-    // Lắng nghe beforeinstallprompt event (Chrome, Edge, etc.)
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      setIsInstallable(true)
     }
-    
-    // Kiểm tra lại sau một khoảng thời gian (để đảm bảo service worker đã load)
-    const checkInstallability = () => {
-      // Kiểm tra lại xem đã được cài đặt chưa
-      if (checkInstalled()) {
-        return
-      }
-      
-      // Kiểm tra lại mobile và supported (có thể thay đổi)
-      const currentMobile = isMobileDevice()
-      const currentSupported = isPWASupported()
-      
-      // Kiểm tra xem có thể install không (cho mobile browsers)
-      if (currentMobile && currentSupported) {
-        // Trên mobile, có thể hiển thị button ngay cả khi chưa có beforeinstallprompt
-        // Vì một số trình duyệt mobile không trigger event này ngay lập tức
-        const hasManifest = document.querySelector('link[rel="manifest"]')
-        const hasServiceWorker = 'serviceWorker' in navigator
-        
-        if (hasManifest && hasServiceWorker) {
-          // Vẫn hiển thị button cho mobile, hướng dẫn user cài đặt thủ công
-          setIsInstallable(true)
-        }
-      }
-    }
-    
-    // Check ngay và sau 2 giây
-    checkInstallability()
-    const checkTimeout = setTimeout(checkInstallability, 2000)
 
-    // Lắng nghe appinstalled event
     const handleAppInstalled = () => {
       setIsInstalled(true)
-      setIsInstallable(false)
       setDeferredPrompt(null)
     }
 
-    // Lắng nghe display mode changes
     const handleDisplayModeChange = (e) => {
       if (e.matches) {
         setIsInstalled(true)
-        setIsInstallable(false)
+        setDeferredPrompt(null)
       }
     }
 
-    const standaloneMediaQuery = window.matchMedia('(display-mode: standalone)')
-    const minimalUIMediaQuery = window.matchMedia('(display-mode: minimal-ui)')
-    
-    if (standaloneMediaQuery.addEventListener) {
-      standaloneMediaQuery.addEventListener('change', handleDisplayModeChange)
-    }
-    if (minimalUIMediaQuery.addEventListener) {
-      minimalUIMediaQuery.addEventListener('change', handleDisplayModeChange)
-    }
+    const standaloneMq = window.matchMedia('(display-mode: standalone)')
+    const minimalMq = window.matchMedia('(display-mode: minimal-ui)')
 
+    standaloneMq.addEventListener?.('change', handleDisplayModeChange)
+    minimalMq.addEventListener?.('change', handleDisplayModeChange)
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
 
+    const interval = setInterval(refreshInstallState, 3000)
+
     return () => {
-      if (checkTimeout) {
-        clearTimeout(checkTimeout)
-      }
+      clearInterval(interval)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
-      if (standaloneMediaQuery && standaloneMediaQuery.removeEventListener) {
-        standaloneMediaQuery.removeEventListener('change', handleDisplayModeChange)
-      }
-      if (minimalUIMediaQuery && minimalUIMediaQuery.removeEventListener) {
-        minimalUIMediaQuery.removeEventListener('change', handleDisplayModeChange)
-      }
+      standaloneMq.removeEventListener?.('change', handleDisplayModeChange)
+      minimalMq.removeEventListener?.('change', handleDisplayModeChange)
     }
-  }, []) // Chỉ chạy một lần khi mount
+  }, [refreshInstallState])
+
+  const hasNativePrompt = Boolean(deferredPrompt)
+  const canInstall = !isInstalled && (hasNativePrompt || isSupported)
 
   const installPWA = async () => {
-    // Nếu có deferredPrompt, sử dụng nó
     if (deferredPrompt) {
       try {
-        deferredPrompt.prompt()
+        await deferredPrompt.prompt()
         const { outcome } = await deferredPrompt.userChoice
-        
         if (outcome === 'accepted') {
           setDeferredPrompt(null)
-          setIsInstallable(false)
           setIsInstalled(true)
           return { success: true }
-        } else {
-          return { success: false, error: 'User dismissed install prompt' }
         }
+        return { success: false, error: 'Bạn đã hủy cài đặt' }
       } catch (error) {
         console.error('Error installing PWA:', error)
         return { success: false, error: error.message }
       }
     }
-    
-    // Nếu không có deferredPrompt, kiểm tra lại mobile và supported
-    const currentMobile = isMobileDevice()
-    const currentSupported = isPWASupported()
-    
-    // Nếu là mobile và supported, hướng dẫn user cài đặt thủ công
-    if (currentMobile && currentSupported) {
-      return { 
-        success: false, 
-        error: 'Vui lòng sử dụng menu trình duyệt để cài đặt: Menu > "Thêm vào màn hình chính" hoặc "Install app"',
-        manual: true
+
+    if (platform === 'ios') {
+      return {
+        success: false,
+        manual: true,
+        platform: 'ios',
+        error: 'ios_instructions',
       }
     }
-    
-    return { success: false, error: 'Install prompt not available. Please use a supported browser.' }
+
+    if (isMobile || isSupported) {
+      return {
+        success: false,
+        manual: true,
+        platform,
+        error:
+          'Nhấn menu trình duyệt (⋮) và chọn "Cài đặt ứng dụng" hoặc "Thêm vào màn hình chính".',
+      }
+    }
+
+    return {
+      success: false,
+      error: 'Trình duyệt không hỗ trợ cài đặt. Hãy dùng Chrome hoặc Edge trên điện thoại.',
+    }
   }
 
   return {
-    isInstallable,
+    isInstallable: canInstall,
+    canInstall,
     isInstalled,
     isMobile,
     isSupported,
+    hasNativePrompt,
+    platform,
     installPWA,
   }
 }
-

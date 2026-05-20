@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, getDocs, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore'
-import { db } from '../../config/firebase'
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { getUser, searchUsersFallback } from '@/repositories/usersRepository'
 import { useAuth } from '../../contexts/AuthContext'
 import Card from '../ui/Card'
 import Avatar from '../ui/Avatar'
@@ -26,26 +27,13 @@ const FollowSuggestions = ({ maxSuggestions = 5 }) => {
       setLoading(true)
       try {
         // Lấy danh sách following của user hiện tại
-        const currentUserDoc = await getDoc(doc(db, 'users', currentUser.uid))
-        const currentUserData = currentUserDoc.exists() ? currentUserDoc.data() : {}
+        const currentUserData = (await getUser(currentUser.uid)) || {}
         const followingList = currentUserData.following || []
         setFollowing(new Set(followingList))
 
-        // Lấy tất cả users
-        const usersRef = collection(db, 'users')
-        const snapshot = await getDocs(usersRef)
-        
-        const allUsers = snapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }))
-          .filter(
-            (user) =>
-              user.uid &&
-              user.uid !== currentUser.uid &&
-              !followingList.includes(user.uid)
-          )
+        const allUsers = (await searchUsersFallback('', currentUser.uid, 100)).filter(
+          (user) => user.uid && !followingList.includes(user.uid)
+        )
 
         // Sắp xếp theo số followers (người có nhiều followers hơn sẽ được đề xuất)
         allUsers.sort((a, b) => {

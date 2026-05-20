@@ -1,20 +1,19 @@
 import { useState, useEffect, memo, useCallback, useMemo, forwardRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { doc, deleteDoc } from 'firebase/firestore'
-import { db } from '../../config/firebase'
+import { usePostActions } from '@/hooks/usePosts'
 import Card from '../ui/Card'
 import Avatar from '../ui/Avatar'
-import Button from '../ui/Button'
 import AlertModal from '../ui/AlertModal'
 import Comments from './Comments'
 import { useUserInfo } from '../../hooks/useUserInfo'
-import { Heart, MessageCircle, Share2, MoreVertical, Trash2 } from 'lucide-react'
+import { Heart, MessageCircle, MoreVertical, Trash2 } from 'lucide-react'
 import { formatRelativeTime } from '../../utils/formatDate'
 import { linkifyText } from '../../utils/linkify'
 
 const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment, onReactComment, onReplyComment }, ref) => {
   const { currentUser } = useAuth()
+  const { deletePost } = usePostActions()
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [showMenu, setShowMenu] = useState(false)
@@ -48,27 +47,28 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment,
     if (liking) return
 
     setLiking(true)
-    const newIsLiked = !isLiked
+    const wasLiked = isLiked
+    const newIsLiked = !wasLiked
     setIsLiked(newIsLiked)
-    setLikeCount(newIsLiked ? likeCount + 1 : likeCount - 1)
+    setLikeCount((prev) => (newIsLiked ? prev + 1 : Math.max(0, prev - 1)))
 
     try {
       if (onLike) {
-        const result = await onLike(post.id, isLiked)
+        const result = await onLike(post.id, wasLiked)
         if (!result.success) {
-          setIsLiked(!newIsLiked)
-          setLikeCount(newIsLiked ? likeCount : likeCount + 1)
+          setIsLiked(wasLiked)
+          setLikeCount((prev) => (newIsLiked ? Math.max(0, prev - 1) : prev + 1))
           setShowLikeError({ isOpen: true, message: result.error || 'Có lỗi xảy ra khi thích bài viết' })
         }
       }
     } catch (error) {
       console.error('Error liking post:', error)
-      setIsLiked(!newIsLiked)
-      setLikeCount(newIsLiked ? likeCount : likeCount + 1)
+      setIsLiked(wasLiked)
+      setLikeCount((prev) => (newIsLiked ? Math.max(0, prev - 1) : prev + 1))
     } finally {
       setLiking(false)
     }
-  }, [currentUser, liking, isLiked, likeCount, onLike, post.id])
+  }, [currentUser, liking, isLiked, onLike, post.id])
 
   const handleDelete = useCallback(() => {
     setShowDeleteConfirm(true)
@@ -79,19 +79,25 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment,
 
     setDeleting(true)
     try {
-      await deleteDoc(doc(db, 'posts', post.id))
+      const result = await deletePost(post.id)
+      if (!result.success) {
+        setShowLikeError({
+          isOpen: true,
+          message: result.error || 'Có lỗi xảy ra khi xóa bài viết',
+        })
+      }
       setShowDeleteConfirm(false)
     } catch (error) {
       console.error('Error deleting post:', error)
-      setShowLikeError({ 
-        isOpen: true, 
-        message: error.message || 'Có lỗi xảy ra khi xóa bài viết' 
+      setShowLikeError({
+        isOpen: true,
+        message: error.message || 'Có lỗi xảy ra khi xóa bài viết',
       })
       setShowDeleteConfirm(false)
     } finally {
       setDeleting(false)
     }
-  }, [currentUser, post.userId, post.id])
+  }, [currentUser, post.userId, post.id, deletePost])
 
   const toggleComments = useCallback(() => {
     setShowComments(prev => !prev)
@@ -186,29 +192,28 @@ const PostCard = memo(forwardRef(({ post, onLike, onAddComment, onDeleteComment,
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-gray-200">
-          <div className="flex items-center space-x-4 sm:space-x-6">
+        <div className="flex items-center justify-between border-t border-surface-border pt-3 sm:pt-4">
+          <div className="flex items-center gap-4 sm:gap-6">
             <button
+              type="button"
               onClick={handleLike}
-              className={`flex items-center space-x-1.5 sm:space-x-2 transition-colors ${
-                isLiked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'
+              disabled={liking}
+              className={`flex items-center gap-1.5 transition-colors sm:gap-2 ${
+                isLiked ? 'text-red-600' : 'text-slate-600 hover:text-red-600'
               }`}
             >
-              <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? 'fill-current' : ''}`} />
+              <Heart className={`h-4 w-4 sm:h-5 sm:w-5 ${isLiked ? 'fill-current' : ''}`} />
               <span className="text-sm sm:text-base">{likeCount}</span>
             </button>
             <button
+              type="button"
               onClick={toggleComments}
-              className={`flex items-center space-x-1.5 sm:space-x-2 transition-colors ${
-                showComments ? 'text-primary-600' : 'text-gray-600 hover:text-primary-600'
+              className={`flex items-center gap-1.5 transition-colors sm:gap-2 ${
+                showComments ? 'text-brand-600' : 'text-slate-600 hover:text-brand-600'
               }`}
             >
-              <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+              <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
               <span className="text-sm sm:text-base">{post.commentCount || post.comments?.length || 0}</span>
-            </button>
-            <button className="hidden sm:flex items-center space-x-2 text-gray-600 hover:text-primary-600 transition-colors">
-              <Share2 className="w-5 h-5" />
-              <span>Chia sẻ</span>
             </button>
           </div>
         </div>

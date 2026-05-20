@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../../config/firebase'
+import { useState, useEffect, useCallback } from 'react'
+import { searchUsersByPrefix, searchUsersFallback } from '@/repositories/usersRepository'
 import { useAuth } from '../../contexts/AuthContext'
 import Modal from '../ui/Modal'
 import Avatar from '../ui/Avatar'
@@ -14,76 +13,45 @@ const NewChatModal = ({ isOpen, onClose, onChatSelected }) => {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(false)
 
+  const loadUsers = useCallback(
+    async (query = '') => {
+      if (!currentUser) return
+      setLoading(true)
+      try {
+        let results = []
+        if (query.trim()) {
+          results = await searchUsersByPrefix(query, currentUser.uid, 50)
+          if (results.length === 0) {
+            results = await searchUsersFallback(query, currentUser.uid, 50)
+          }
+        } else {
+          results = await searchUsersFallback('', currentUser.uid, 50)
+        }
+        setUsers(
+          results.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''))
+        )
+      } catch (error) {
+        console.error('Error loading users:', error)
+        setUsers([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [currentUser]
+  )
+
   useEffect(() => {
-    if (isOpen && currentUser) {
-      fetchUsers()
-    } else {
+    if (!isOpen || !currentUser) {
       setSearchQuery('')
       setUsers([])
-    }
-  }, [isOpen, currentUser])
-
-  const fetchUsers = async () => {
-    if (!currentUser) return
-
-    setLoading(true)
-    try {
-      const usersRef = collection(db, 'users')
-      const snapshot = await getDocs(usersRef)
-      const usersData = snapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .filter((user) => user.uid && user.uid !== currentUser.uid)
-        .sort((a, b) => {
-          const nameA = (a.displayName || '').toLowerCase()
-          const nameB = (b.displayName || '').toLowerCase()
-          return nameA.localeCompare(nameB)
-        })
-        .slice(0, 50)
-
-      setUsers(usersData)
-    } catch (error) {
-      console.error('Error fetching users:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim() || !currentUser) {
-      fetchUsers()
       return
     }
-
-    setLoading(true)
-    try {
-      const usersRef = collection(db, 'users')
-      const snapshot = await getDocs(usersRef)
-      const allUsers = snapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .filter(
-          (user) =>
-            user.uid !== currentUser.uid &&
-            (user.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              user.email?.toLowerCase().includes(searchQuery.toLowerCase()))
-        )
-
-      setUsers(allUsers)
-    } catch (error) {
-      console.error('Error searching users:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+    const timer = setTimeout(() => loadUsers(searchQuery), searchQuery ? 300 : 0)
+    return () => clearTimeout(timer)
+  }, [isOpen, currentUser, searchQuery, loadUsers])
 
   const handleSelectUser = async (user) => {
     if (!currentUser) return
-
     try {
       const result = await getOrCreateChat(currentUser.uid, user.uid)
       if (result.success && onChatSelected) {
@@ -99,48 +67,40 @@ const NewChatModal = ({ isOpen, onClose, onChatSelected }) => {
     <Modal isOpen={isOpen} onClose={onClose} title="Tin nhắn mới" size="md">
       <div className="space-y-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSearch()
-              }
-            }}
-            placeholder="Tìm kiếm người dùng..."
+            placeholder="Tìm theo tên..."
             className="pl-10"
           />
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto">
+        <div className="max-h-[min(50dvh,400px)] overflow-y-auto scrollbar-custom">
           {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+            <div className="py-10 text-center">
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-600" />
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              {searchQuery ? 'Không tìm thấy người dùng' : 'Chưa có người dùng nào'}
-            </div>
+            <p className="py-10 text-center text-sm text-slate-500">
+              {searchQuery ? 'Không tìm thấy người dùng' : 'Chưa có người dùng'}
+            </p>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {users.map((user) => (
                 <button
                   key={user.id}
+                  type="button"
                   onClick={() => handleSelectUser(user)}
-                  className="w-full p-3 hover:bg-gray-50 rounded-lg transition-colors text-left flex items-center space-x-3"
+                  className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-brand-50"
                 >
-                  <Avatar
-                    src={user.photoURL}
-                    alt={user.displayName}
-                    size="md"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">
+                  <Avatar src={user.photoURL} alt={user.displayName} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-slate-900">
                       {user.displayName || 'Người dùng'}
                     </p>
                     {user.email && (
-                      <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                      <p className="truncate text-sm text-slate-500">{user.email}</p>
                     )}
                   </div>
                 </button>
@@ -154,4 +114,3 @@ const NewChatModal = ({ isOpen, onClose, onChatSelected }) => {
 }
 
 export default NewChatModal
-

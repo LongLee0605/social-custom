@@ -1,23 +1,20 @@
 import { forwardRef } from 'react'
-import { clsx } from 'clsx'
+import { cn } from '@/lib/cn'
 
-const Card = forwardRef(({ children, className = '', padding = true, ...props }, ref) => {
-  return (
-    <div
-      ref={ref}
-      className={clsx(
-        'bg-white rounded-lg shadow-sm',
-        padding && 'lg:p-6 p-4',
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  )
-})
+const Card = forwardRef(({ children, className = '', padding = true, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      'bg-surface-elevated rounded-2xl border border-surface-border/90 shadow-soft',
+      padding && 'p-4 sm:p-5',
+      className
+    )}
+    {...props}
+  >
+    {children}
+  </div>
+))
 
 Card.displayName = 'Card'
 
 export default Card
-
